@@ -27,7 +27,7 @@ class MyCallbacks : public BLECharacteristicCallbacks
   // Read時
   void onRead(BLECharacteristic *pCharacteristic)
   {
-    pCharacteristic->setValue("Hello World!");
+    // pCharacteristic->setValue("Hello World!");
   }
 
   // Write時
@@ -35,6 +35,8 @@ class MyCallbacks : public BLECharacteristicCallbacks
   {
     // M5.Lcd.println("write");
     std::string value = pCharacteristic->getValue();
+    std::string command_set_wifi_ssid = "3001";
+    std::string command_set_wifi_pw = "3002";
     if (value == "1111")
     {
       IsMeasStop = false;
@@ -43,8 +45,24 @@ class MyCallbacks : public BLECharacteristicCallbacks
     {
       IsMeasStop = true;
     }
-    else if (value == "3333")
+    else if (value == "3000")
     {
+      IsMeasStop = true;
+      IsFirmwareUpdating = true;
+    }
+    else if (value.size() >= command_set_wifi_ssid.size() &&
+             std::equal(std::begin(command_set_wifi_ssid), std::end(command_set_wifi_ssid), std::begin(value)))
+    {
+      // 3001コマンドだったら、後ろを取り出す。
+      wifi_ssid = value.substr(5);
+      Serial.println(wifi_ssid.c_str());
+    }
+    else if (value.size() >= command_set_wifi_pw.size() &&
+             std::equal(std::begin(command_set_wifi_pw), std::end(command_set_wifi_pw), std::begin(value)))
+    {
+      // 3002コマンドだったら、後ろを取り出す。
+      wifi_pw = value.substr(5);
+      Serial.println(wifi_pw.c_str());
     }
     // Serial.println(value.c_str());
   }

@@ -18,6 +18,7 @@ enum MyState
   STATE_ADVERTISE,
   STATE_WAIT_MEAS,
   STATE_MEAS,
+  STATE_FIRMWARE_UPDATING,
   STATE_MAX,
 };
 
@@ -35,8 +36,11 @@ enum MyEvent
 
 extern bool IsConnected;
 extern bool IsMeasStop;
+extern bool IsFirmwareUpdating;
 extern uint8_t state;
 extern uint8_t event;
+extern std::string wifi_ssid;
+extern std::string wifi_pw;
 extern char device_id[64];
 extern uint64_t timer_start_timeout;
 extern uint64_t timer_stop_timeout;
