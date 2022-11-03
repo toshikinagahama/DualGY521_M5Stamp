@@ -33,38 +33,93 @@ class MyCallbacks : public BLECharacteristicCallbacks
   // Write時
   void onWrite(BLECharacteristic *pCharacteristic)
   {
-    // M5.Lcd.println("write");
-    std::string value = pCharacteristic->getValue();
-    std::string command_set_wifi_ssid = "3001";
-    std::string command_set_wifi_pw = "3002";
-    if (value == "1111")
+    std::string data = pCharacteristic->getValue();
+    uint16_t len_data = (uint16_t)data.length();
+    if (len_data < 2)
+      return; //無効なコマンド
+    switch (data[0])
     {
-      IsMeasStop = false;
+    case 0x00:
+      //機器情報関連
+      switch (data[1])
+      {
+      case 0x01:
+        //機器情報取得
+        pCharacteristic->setValue(device_version);
+        pCharacteristic->notify();
+        break;
+      default:
+        break;
+      }
+      break;
+    case 0x01:
+      //測定関係
+      switch (data[1])
+      {
+      case 0x00:
+        //測定開始
+        IsMeasStop = false;
+        break;
+      case 0x01:
+        //測定終了
+        IsMeasStop = true;
+        break;
+      default:
+        break;
+      }
+      break;
+    case 0x02:
+      // Wifi関係
+      switch (data[1])
+      {
+      case 0x00:
+        // SSID
+        if (len_data > 2)
+        {
+          wifi_ssid = data.substr(2);
+          Serial.println(wifi_ssid.c_str());
+        }
+        pCharacteristic->setValue(wifi_ssid);
+        pCharacteristic->notify();
+        break;
+      case 0x01:
+        // PW
+        if (len_data > 2)
+        {
+          wifi_pw = data.substr(2);
+          Serial.println(wifi_pw.c_str());
+        }
+        pCharacteristic->setValue(wifi_pw);
+        pCharacteristic->notify();
+        break;
+      default:
+        break;
+      }
+      break;
+    case 0x03:
+      // Firmware関係
+      switch (data[1])
+      {
+      case 0x00:
+        IsMeasStop = true;
+        IsFirmwareUpdating = true;
+        break;
+      case 0x01:
+        break;
+      default:
+        break;
+      }
+      break;
+    default:
+      Serial.println("Invalid cmd");
+      break;
     }
-    else if (value == "2222")
-    {
-      IsMeasStop = true;
-    }
-    else if (value == "3000")
-    {
-      IsMeasStop = true;
-      IsFirmwareUpdating = true;
-    }
-    else if (value.size() >= command_set_wifi_ssid.size() &&
-             std::equal(std::begin(command_set_wifi_ssid), std::end(command_set_wifi_ssid), std::begin(value)))
-    {
-      // 3001コマンドだったら、後ろを取り出す。
-      wifi_ssid = value.substr(5);
-      Serial.println(wifi_ssid.c_str());
-    }
-    else if (value.size() >= command_set_wifi_pw.size() &&
-             std::equal(std::begin(command_set_wifi_pw), std::end(command_set_wifi_pw), std::begin(value)))
-    {
-      // 3002コマンドだったら、後ろを取り出す。
-      wifi_pw = value.substr(5);
-      Serial.println(wifi_pw.c_str());
-    }
-    // Serial.println(value.c_str());
+    Serial.printf("%d", len_data);
+    Serial.println("");
+    // Serial.printf("%x", data[0]);
+    // Serial.println("");
+    // Serial.printf("%x", data[1]);
+    // Serial.println("");
   }
 };
 

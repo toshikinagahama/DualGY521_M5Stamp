@@ -38,11 +38,14 @@ extern bool IsConnected;
 extern bool IsMeasStop;
 extern bool IsFirmwareUpdating;
 extern uint8_t state;
+extern uint8_t state_last;
 extern uint8_t event;
 extern std::string wifi_ssid;
 extern std::string wifi_pw;
 extern char device_id[64];
 extern uint64_t timer_start_timeout;
 extern uint64_t timer_stop_timeout;
+extern std::string device_version;
+extern std::string getFirmwareInfomation();
 
 #endif // GLOBAL_H
