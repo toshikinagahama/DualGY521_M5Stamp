@@ -3,6 +3,7 @@
 #include <BLEUtils.h>
 #include <BLEServer.h>
 #include <BLE2902.h>
+#include <WiFi.h>
 #include "MyBLE.h"
 #include "global.h"
 
@@ -45,7 +46,7 @@ class MyCallbacks : public BLECharacteristicCallbacks
       {
       case 0x01:
         //機器情報取得
-        pCharacteristic->setValue(device_version);
+        pCharacteristic->setValue("device_version," + device_version);
         pCharacteristic->notify();
         break;
       default:
@@ -79,7 +80,7 @@ class MyCallbacks : public BLECharacteristicCallbacks
           wifi_ssid = data.substr(2);
           Serial.println(wifi_ssid.c_str());
         }
-        pCharacteristic->setValue(wifi_ssid);
+        pCharacteristic->setValue("wifi_ssid," + wifi_ssid);
         pCharacteristic->notify();
         break;
       case 0x01:
@@ -89,9 +90,12 @@ class MyCallbacks : public BLECharacteristicCallbacks
           wifi_pw = data.substr(2);
           Serial.println(wifi_pw.c_str());
         }
-        pCharacteristic->setValue(wifi_pw);
+        pCharacteristic->setValue("wifi_pw," + wifi_pw);
         pCharacteristic->notify();
         break;
+      case 0x02:
+        pCharacteristic->setValue("device_ip" + (std::string)(WiFi.localIP().toString().c_str()));
+        pCharacteristic->notify();
       default:
         break;
       }
@@ -239,6 +243,16 @@ void MyBLE::advertiseStop()
  * notify
  */
 void MyBLE::notify(char *val)
+{
+  pCharacteristic->setValue(val);
+  pCharacteristic->notify();
+}
+
+/**
+ *
+ * notify(string)
+ */
+void MyBLE::notify(std::string val)
 {
   pCharacteristic->setValue(val);
   pCharacteristic->notify();
