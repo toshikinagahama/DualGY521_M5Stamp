@@ -49,14 +49,14 @@ stateDiagram-v2
 | -------------- | ------------ | ------------- | ---------------------------- |
 |                | 2byte        | 任意byte      | 任意byte                     |
 | 機器情報取得   | 0x00, 0x01   | なし          | 機器情報(json)               |
-| 連続測定開始   | 0x03, 0x00   |               | 2つの6軸センサの値           |
-| 連続測定終了   | 0x03, 0x01   | なし          | なし                         |
-| Wifi SSID設定  | 0x04, 0x00   | SSID（ascii） | 設定したSSID(ascii)          |
-| Wifi SSID取得  | 0x04, 0x00   | なし          | 設定したSSID(ascii)          |
-| Wifi PW設定    | 0x04, 0x01   | PW(ascii)     | 設定したPW(ascii)            |
-| Wifi IP取得    | 0x04, 0x02   | なし          | ネット接続時:IP、未接続:None |
-| FW更新         | 0x05, 0x00   | なし          | 更新必要：0x01,不必要:0x00   |
-| FW更新Host設定 | 0x05, 0x01   | Host(ascii)   | 設定したHost(ascii)          |
-| FW更新Host取得 | 0x05, 0x01   | なし          | 設定したHost(ascii)          |
+| 連続測定開始   | 0x01, 0x00   | なし          | 2つの6軸センサの値           |
+| 連続測定終了   | 0x01, 0x01   | なし          | なし                         |
+| Wifi SSID設定  | 0x02, 0x00   | SSID（ascii） | 設定したSSID(ascii)          |
+| Wifi SSID取得  | 0x02, 0x00   | なし          | 設定したSSID(ascii)          |
+| Wifi PW設定    | 0x02, 0x01   | PW(ascii)     | 設定したPW(ascii)            |
+| Wifi IP取得    | 0x02, 0x02   | なし          | ネット接続時:IP、未接続:None |
+| FW更新         | 0x03, 0x00   | なし          | 更新開始：0x01,不必要:0x00   |
+| FW更新Host設定 | 0x03, 0x01   | Host(ascii)   | 設定したHost(ascii)          |
+| FW更新Host取得 | 0x03, 0x01   | なし          | 設定したHost(ascii)          |
 
 
