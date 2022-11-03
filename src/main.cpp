@@ -68,7 +68,7 @@ void sampling(void *arg)
           unsigned long time_start = micros();
           six_sensor->getValues();
           char val[128];
-          sprintf(val, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\r\n", six_sensor->raw_acc[0][0], six_sensor->raw_acc[0][1], six_sensor->raw_acc[0][2], six_sensor->raw_gyro[0][0], six_sensor->raw_gyro[0][1], six_sensor->raw_gyro[0][2], six_sensor->raw_acc[1][0], six_sensor->raw_acc[1][1], six_sensor->raw_acc[1][2], six_sensor->raw_gyro[1][0], six_sensor->raw_gyro[1][1], six_sensor->raw_gyro[1][2]);
+          sprintf(val, "data,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\r\n", six_sensor->raw_acc[0][0], six_sensor->raw_acc[0][1], six_sensor->raw_acc[0][2], six_sensor->raw_gyro[0][0], six_sensor->raw_gyro[0][1], six_sensor->raw_gyro[0][2], six_sensor->raw_acc[1][0], six_sensor->raw_acc[1][1], six_sensor->raw_acc[1][2], six_sensor->raw_gyro[1][0], six_sensor->raw_gyro[1][1], six_sensor->raw_gyro[1][2]);
           ble->notify(val);
           //サンプリング分待つ
           unsigned long time_end = micros();
@@ -104,11 +104,15 @@ void firmwareUpdate()
   WiFi.begin(wifi_ssid.c_str(), wifi_pw.c_str());
   while (WiFi.waitForConnectResult() != WL_CONNECTED)
   {
-    ble->notify("Connection Failed! Rebooting...");
+    ble->notify("Info,Connection Failed! Rebooting...");
     // Serial.println("Connection Failed! Rebooting...");
     delay(5000);
     ESP.restart();
   }
+  Serial.println("Ready");
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+  ble->notify(("device_ip," + (std::string)(WiFi.localIP().toString().c_str())));
   ArduinoOTA.setHostname("myesp32");
 
   ArduinoOTA
@@ -134,10 +138,6 @@ void firmwareUpdate()
       else if (error == OTA_END_ERROR) Serial.println("End Failed"); });
 
   ArduinoOTA.begin();
-
-  Serial.println("Ready");
-  Serial.print("IP address: ");
-  Serial.println(WiFi.localIP());
 }
 
 void setup()
@@ -171,7 +171,7 @@ void setup()
 
 void loop(void)
 {
-  // ArduinoOTA.handle();
+  ArduinoOTA.handle();
   DETECT_EVENT();
 
   switch (state)

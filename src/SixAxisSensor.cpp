@@ -12,10 +12,10 @@ void SixAxisSensor::initialize()
   this->sensor1->initialize();
   this->sensor2->initialize();
   // set full scale range
-  this->sensor1->setFullScaleAccelRange(0);
-  this->sensor1->setFullScaleGyroRange(0);
-  this->sensor2->setFullScaleAccelRange(0);
-  this->sensor2->setFullScaleGyroRange(0);
+  this->sensor1->setFullScaleAccelRange(2);
+  this->sensor1->setFullScaleGyroRange(2);
+  this->sensor2->setFullScaleAccelRange(2);
+  this->sensor2->setFullScaleGyroRange(2);
   // caribrate
   // this->sensor1->CalibrateAccel();
   // this->sensor1->CalibrateGyro();
