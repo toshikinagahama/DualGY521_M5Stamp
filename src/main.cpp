@@ -8,90 +8,89 @@
 #include <ArduinoOTA.h>
 #include <Wire.h>
 #include "MyBLE.h"
+#include "event.h"
 #include "BatterySensor.h"
 #include "SixAxisSensor.h"
-
-#define ADDRESS_MAJOR_VERSION 0x00
-#define ADDRESS_MINOR_VERSION 0x01
-#define ADDRESS_REVISION_VERSION 0x02
 #define NUM_LEDS 1
 #define DATA_PIN 27
+
 CRGB leds[NUM_LEDS];
 
 MyBLE *ble = new MyBLE();
 SixAxisSensor *six_sensor = new SixAxisSensor();
 BatterySensor *bat_sensor = new BatterySensor();
+MyState state;
+uint32_t cnt = 0;
 
 int sampling_period_us;
-// const char *ssid = "aterm-2336f5-g";
-// const char *password = "09991a8bae353";
 
 /**
+ * @brief データサンプリング
  *
- * イベント検知
  */
-void DETECT_EVENT()
+void sampling()
 {
-  if (!IsConnected)
-    state = STATE_ADVERTISE;
-  else if (IsMeasStop)
-    if (!IsFirmwareUpdating)
-    {
-      state = STATE_WAIT_MEAS;
-    }
-    else
-    {
-      if (wifi_ssid.empty())
-      {
-        state = STATE_WAIT_MEAS;
-      }
-      else
-      {
-        state = STATE_FIRMWARE_UPDATING;
-      }
-    }
-  else
-    state = STATE_MEAS;
+  unsigned long time_start = micros();
+  six_sensor->getValues();
+  char val[128];
+  sprintf(val, "data,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\r\n", cnt, six_sensor->raw_acc[0][0], six_sensor->raw_acc[0][1], six_sensor->raw_acc[0][2], six_sensor->raw_gyro[0][0], six_sensor->raw_gyro[0][1], six_sensor->raw_gyro[0][2], six_sensor->raw_acc[1][0], six_sensor->raw_acc[1][1], six_sensor->raw_acc[1][2], six_sensor->raw_gyro[1][0], six_sensor->raw_gyro[1][1], six_sensor->raw_gyro[1][2]);
+  ble->notify(val);
+  //サンプリング分待つ
+  unsigned long time_end = micros();
+  while (time_end - time_start < sampling_period_us)
+  {
+    time_end = micros();
+  }
 }
 
-void sampling(void *arg)
+/**
+ * @brief 非同期のタスク
+ *
+ * @param arg
+ */
+void task(void *arg)
 {
+  char val[128];
   while (1)
   {
-
-    if (state == STATE_MEAS)
+    switch (state)
     {
-      if (IsConnected)
-      {
-        if (!IsMeasStop)
-        {
-          unsigned long time_start = micros();
-          six_sensor->getValues();
-          char val[128];
-          sprintf(val, "data,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\r\n", six_sensor->raw_acc[0][0], six_sensor->raw_acc[0][1], six_sensor->raw_acc[0][2], six_sensor->raw_gyro[0][0], six_sensor->raw_gyro[0][1], six_sensor->raw_gyro[0][2], six_sensor->raw_acc[1][0], six_sensor->raw_acc[1][1], six_sensor->raw_acc[1][2], six_sensor->raw_gyro[1][0], six_sensor->raw_gyro[1][1], six_sensor->raw_gyro[1][2]);
-          ble->notify(val);
-          //サンプリング分待つ
-          unsigned long time_end = micros();
-          while (time_end - time_start < sampling_period_us)
-          {
-            time_end = micros();
-          }
-        }
-        else
-        {
-          delay(1000);
-        }
-      }
-      else
-      {
-        delay(1000);
-      }
-    }
-    else
-    {
+    case STATE_MEAS:
+      sampling();
+      cnt++;
+      break;
+    default:
+      cnt = 0;
+      bat_sensor->getValues();
+      val[128];
+      sprintf(val, "%d", bat_sensor->level);
+      ble->pBatteryCharacteristic->setValue(&bat_sensor->level, 1);
+      ble->pBatteryCharacteristic->notify();
       delay(1000);
+      break;
     }
   }
+}
+
+/**
+ * @brief Wifiアクセスポイントに接続
+ *
+ */
+void connectWifiAP()
+{
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(SYS.WIFI_SSID.c_str(), SYS.WIFI_PW.c_str());
+  while (WiFi.waitForConnectResult() != WL_CONNECTED)
+  {
+    ble->notify("Info,Connection Failed! Rebooting...");
+    // Serial.println("Connection Failed! Rebooting...");
+    delay(3000);
+    ESP.restart();
+  }
+  SYS.WIFI_IP = WiFi.localIP().toString().c_str();
+  Serial.println("Ready");
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
 }
 
 /**
@@ -100,21 +99,7 @@ void sampling(void *arg)
  */
 void firmwareUpdate()
 {
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(wifi_ssid.c_str(), wifi_pw.c_str());
-  while (WiFi.waitForConnectResult() != WL_CONNECTED)
-  {
-    ble->notify("Info,Connection Failed! Rebooting...");
-    // Serial.println("Connection Failed! Rebooting...");
-    delay(5000);
-    ESP.restart();
-  }
-  Serial.println("Ready");
-  Serial.print("IP address: ");
-  Serial.println(WiFi.localIP());
-  ble->notify(("device_ip," + (std::string)(WiFi.localIP().toString().c_str())));
   ArduinoOTA.setHostname("myesp32");
-
   ArduinoOTA
       .onStart([]()
                {
@@ -136,10 +121,14 @@ void firmwareUpdate()
       else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
       else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
       else if (error == OTA_END_ERROR) Serial.println("End Failed"); });
-
   ArduinoOTA.begin();
+  INT.BIT.FW_UPDATING = 1;
 }
 
+/**
+ * @brief 初期化関数
+ *
+ */
 void setup()
 {
   Serial.begin(115200);
@@ -151,68 +140,158 @@ void setup()
     delay(1000);
     ESP.restart();
   }
-  // EEPROM.writeInt(ADDRESS_MAJOR_VERSION, 0);
-  // EEPROM.writeInt(ADDRESS_MINOR_VERSION, 1);
-  // EEPROM.writeInt(ADDRESS_REVISION_VERSION, 0);
-  // EEPROM.commit();
+  EEPROM.writeInt(ADDRESS_MAJOR_VERSION, 0);
+  EEPROM.writeInt(ADDRESS_MINOR_VERSION, 2);
+  EEPROM.writeInt(ADDRESS_REVISION_VERSION, 1);
+  EEPROM.commit();
   char char_version[64];
   sprintf(char_version, "%d.%d.%d", EEPROM.readByte(ADDRESS_MAJOR_VERSION), EEPROM.readByte(ADDRESS_MINOR_VERSION), EEPROM.readByte(ADDRESS_REVISION_VERSION));
-  device_version = char_version;
-  Serial.println(device_version.c_str());
+  SYS.DEVICE_VERSION = char_version;
+  Serial.println(SYS.DEVICE_VERSION.c_str());
   ble->initialize();
   bat_sensor->initialize();
   six_sensor->initialize();
   FastLED.addLeds<SK6812, DATA_PIN, RGB>(leds, NUM_LEDS); // GRB ordering is typical
   ble->advertiseStart();
   sampling_period_us = round(1000000 * (1.0 / 100)); //サンプリング時間の設定
-  xTaskCreatePinnedToCore(sampling, "sampling", 4096, NULL, 1, NULL, 1);
+  xTaskCreatePinnedToCore(task, "task", 4096, NULL, 1, NULL, 1);
   state = STATE_ADVERTISE;
 }
 
-void loop(void)
+/**
+ * @brief アクション実行
+ *
+ * @param EVT
+ */
+void doAction(MyEvent EVT)
 {
-  ArduinoOTA.handle();
-  DETECT_EVENT();
-
   switch (state)
   {
   case STATE_ADVERTISE:
-    IsFirmwareUpdating = false;
+    switch (EVT)
+    {
+    case EVT_BLE_CONNECTED:
+      state = STATE_WAIT;
+      break;
+    default:
+      break;
+    }
     leds[0] = 0x0000ff;
     FastLED.show();
     break;
-  case STATE_WAIT_MEAS:
+  case STATE_WAIT:
+    switch (EVT)
+    {
+    case EVT_BLE_DISCONNECTED:
+      state = STATE_ADVERTISE;
+      break;
+    case EVT_MEAS_START:
+      state = STATE_MEAS;
+      break;
+    case EVT_CONNECT_WIFI:
+      connectWifiAP(); //アクセスポイントに接続
+      break;
+    case EVT_FW_UPDATE:
+      firmwareUpdate(); //ファームウェア更新
+      state = STATE_FW_UPDATE;
+      break;
+    case EVT_GET_DEVICE_INFO:
+      //本当は設定状態に分けたほうがいい
+      ble->notify("device_version," + SYS.DEVICE_VERSION);
+      break;
+    case EVT_GET_WIFI_SSID:
+      ble->notify("wifi_ssid," + SYS.WIFI_SSID);
+      break;
+    case EVT_SET_WIFI_SSID:
+      SYS.WIFI_SSID = SYS.BLE_ARG; //引数に入ってる
+      SYS.BLE_ARG = "";
+      ble->notify("wifi_ssid," + SYS.WIFI_SSID);
+      break;
+    case EVT_GET_WIFI_PW:
+      ble->notify("wifi_pw," + SYS.WIFI_PW);
+      break;
+    case EVT_SET_WIFI_PW:
+      SYS.WIFI_PW = SYS.BLE_ARG; //引数に入ってる
+      SYS.BLE_ARG = "";
+      ble->notify("wifi_pw," + SYS.WIFI_PW);
+      break;
+    case EVT_GET_WIFI_IP:
+      ble->notify("device_ip," + SYS.WIFI_IP);
+      break;
+    case EVT_GET_FW_HOST:
+      ble->notify("fw_host," + SYS.FW_HOST);
+      break;
+    case EVT_SET_FW_HOST:
+      SYS.FW_HOST = SYS.BLE_ARG; //引数に入ってる
+      SYS.BLE_ARG = "";
+      ble->notify("fw_host," + SYS.FW_HOST);
+    default:
+      break;
+    }
     leds[0] = 0xff0000;
     FastLED.show();
-    if (!IsMeasStop)
-      state = STATE_MEAS;
     break;
   case STATE_MEAS:
+    switch (EVT)
+    {
+    case EVT_MEAS_STOP:
+      state = STATE_WAIT;
+      break;
+    case EVT_BLE_DISCONNECTED:
+      state = STATE_ADVERTISE;
+      break;
+    default:
+      break;
+    }
     leds[0] = 0x00ff00;
     FastLED.show();
-    if (IsMeasStop)
-      state = STATE_WAIT_MEAS;
     break;
-  case STATE_FIRMWARE_UPDATING:
+  case STATE_FW_UPDATE:
+    switch (EVT)
+    {
+    case EVT_FW_UPDATING:
+      state = STATE_FW_UPDATING;
+      break;
+    case EVT_BLE_DISCONNECTED:
+      state = STATE_ADVERTISE;
+      break;
+    default:
+      break;
+    }
     leds[0] = 0xff00ff;
     FastLED.show();
-    if (state != state_last)
-      firmwareUpdate(); //ファームウェア更新
-    if (!IsFirmwareUpdating)
-      state = STATE_WAIT_MEAS;
+    break;
+  case STATE_FW_UPDATING:
+    switch (EVT)
+    {
+    case EVT_BLE_DISCONNECTED:
+      state = STATE_ADVERTISE;
+      break;
+    default:
+      break;
+    }
+    leds[0] = 0x000000;
+    FastLED.show();
+    delay(200);
+    leds[0] = 0x00ffff;
+    FastLED.show();
     break;
   default:
     leds[0] = 0xffffff;
     FastLED.show();
     break;
   }
-  // Now turn the LED off, then pause
-  delay(1000);
-  bat_sensor->getValues();
-  char val[128];
-  sprintf(val, "%d", bat_sensor->level);
-  ble->pBatteryCharacteristic->setValue(&bat_sensor->level, 1);
-  ble->pBatteryCharacteristic->notify();
+  delay(10);
+}
 
-  state_last = state;
+/**
+ * @brief ループ関数
+ *
+ */
+void loop(void)
+{
+  ArduinoOTA.handle();          //ファームウェア更新のハンドラ
+  MyEvent EVT = Detect_Event(); //イベント検知
+  doAction(EVT);                //イベントに応じたアクション実行
+  Release_Event(EVT);           //イベント開放
 }
