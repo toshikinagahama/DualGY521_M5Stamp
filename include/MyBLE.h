@@ -36,6 +36,7 @@ public:
   void advertiseStop();
   void notify(char *);
   void notify(std::string);
+  void notify(uint8_t *, size_t);
 };
 
 #endif // MYBLE_H
