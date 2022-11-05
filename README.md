@@ -69,3 +69,14 @@ stateDiagram-v2
 | FW更新Host取得 | 0x03, 0x01   | なし          | 設定したHost(ascii)          |
 
 
+# 1測定データのサイズ
+## 1サンプリング
+2byte * 6(acc+gyro) * 2(センサ) = 24byte
+※測定時に加速度・ジャイロのスケールのRangeを取得しておくように。
+
+## 100Hzで1分間測定
+24byte * 100 = 2400byte = 2.4kB/sec
+2.4kB * 60 = 144 kB
+
+RAM:   [==        ]  16.8% (used 55108 bytes from 327680 bytes)
+Flash: [========  ]  78.4% (used 1541181 bytes from 1966080 bytes)

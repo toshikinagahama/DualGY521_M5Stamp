@@ -20,7 +20,7 @@ MyBLE *ble = new MyBLE();
 SixAxisSensor *six_sensor = new SixAxisSensor();
 BatterySensor *bat_sensor = new BatterySensor();
 MyState state;
-uint32_t cnt = 0;
+uint16_t cnt = 0;
 
 int sampling_period_us;
 
@@ -32,9 +32,39 @@ void sampling()
 {
   unsigned long time_start = micros();
   six_sensor->getValues();
-  char val[128];
-  sprintf(val, "data,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\r\n", cnt, six_sensor->raw_acc[0][0], six_sensor->raw_acc[0][1], six_sensor->raw_acc[0][2], six_sensor->raw_gyro[0][0], six_sensor->raw_gyro[0][1], six_sensor->raw_gyro[0][2], six_sensor->raw_acc[1][0], six_sensor->raw_acc[1][1], six_sensor->raw_acc[1][2], six_sensor->raw_gyro[1][0], six_sensor->raw_gyro[1][1], six_sensor->raw_gyro[1][2]);
-  ble->notify(val);
+  uint8_t val[28];
+  val[0] = 0x01; //識別子1
+  val[1] = 0x01; //識別子2
+  val[2] = (uint8_t)(cnt);
+  val[3] = (uint8_t)(cnt >> 8);
+  val[4] = (uint8_t)(six_sensor->raw_acc[0][0]);
+  val[5] = (uint8_t)(six_sensor->raw_acc[0][0] >> 8);
+  val[6] = (uint8_t)(six_sensor->raw_acc[0][1]);
+  val[7] = (uint8_t)(six_sensor->raw_acc[0][1] >> 8);
+  val[8] = (uint8_t)(six_sensor->raw_acc[0][2]);
+  val[9] = (uint8_t)(six_sensor->raw_acc[0][2] >> 8);
+  val[10] = (uint8_t)(six_sensor->raw_gyro[0][0]);
+  val[11] = (uint8_t)(six_sensor->raw_gyro[0][0] >> 8);
+  val[12] = (uint8_t)(six_sensor->raw_gyro[0][1]);
+  val[13] = (uint8_t)(six_sensor->raw_gyro[0][1] >> 8);
+  val[14] = (uint8_t)(six_sensor->raw_gyro[0][2]);
+  val[15] = (uint8_t)(six_sensor->raw_gyro[0][2] >> 8);
+  val[16] = (uint8_t)(six_sensor->raw_acc[1][0]);
+  val[17] = (uint8_t)(six_sensor->raw_acc[1][0] >> 8);
+  val[18] = (uint8_t)(six_sensor->raw_acc[1][1]);
+  val[19] = (uint8_t)(six_sensor->raw_acc[1][1] >> 8);
+  val[20] = (uint8_t)(six_sensor->raw_acc[1][2]);
+  val[21] = (uint8_t)(six_sensor->raw_acc[1][2] >> 8);
+  val[22] = (uint8_t)(six_sensor->raw_gyro[1][0]);
+  val[23] = (uint8_t)(six_sensor->raw_gyro[1][0] >> 8);
+  val[24] = (uint8_t)(six_sensor->raw_gyro[1][1]);
+  val[25] = (uint8_t)(six_sensor->raw_gyro[1][1] >> 8);
+  val[26] = (uint8_t)(six_sensor->raw_gyro[1][2]);
+  val[27] = (uint8_t)(six_sensor->raw_gyro[1][2] >> 8);
+  // sprintf(val, "data,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\r\n", cnt, six_sensor->raw_acc[0][0], six_sensor->raw_acc[0][1], six_sensor->raw_acc[0][2], six_sensor->raw_gyro[0][0], six_sensor->raw_gyro[0][1], six_sensor->raw_gyro[0][2], six_sensor->raw_acc[1][0], six_sensor->raw_acc[1][1], six_sensor->raw_acc[1][2], six_sensor->raw_gyro[1][0], six_sensor->raw_gyro[1][1], six_sensor->raw_gyro[1][2]);
+  uint16_t t = cnt;
+  ble->notify(val, 28);
+  // ble->notify(val);
   //サンプリング分待つ
   unsigned long time_end = micros();
   while (time_end - time_start < sampling_period_us)
@@ -60,7 +90,6 @@ void task(void *arg)
       cnt++;
       break;
     default:
-      cnt = 0;
       bat_sensor->getValues();
       val[128];
       sprintf(val, "%d", bat_sensor->level);
@@ -82,8 +111,8 @@ void connectWifiAP()
   WiFi.begin(SYS.WIFI_SSID.c_str(), SYS.WIFI_PW.c_str());
   while (WiFi.waitForConnectResult() != WL_CONNECTED)
   {
-    ble->notify("Info,Connection Failed! Rebooting...");
-    // Serial.println("Connection Failed! Rebooting...");
+    // ble->notify("Info,Connection Failed! Rebooting...");
+    //  Serial.println("Connection Failed! Rebooting...");
     delay(3000);
     ESP.restart();
   }
@@ -186,6 +215,7 @@ void doAction(MyEvent EVT)
       state = STATE_ADVERTISE;
       break;
     case EVT_MEAS_START:
+      cnt = 0;
       state = STATE_MEAS;
       break;
     case EVT_CONNECT_WIFI:

@@ -267,3 +267,13 @@ void MyBLE::notify(std::string val)
   pCharacteristic->setValue(val);
   pCharacteristic->notify();
 }
+
+/**
+ *
+ * notify(string)
+ */
+void MyBLE::notify(uint8_t *val, size_t len)
+{
+  pCharacteristic->setValue(val, len);
+  pCharacteristic->notify();
+}
