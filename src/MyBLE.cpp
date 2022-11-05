@@ -11,14 +11,14 @@ class MyServerCallbacks : public BLEServerCallbacks
 {
   void onConnect(BLEServer *pServer)
   {
-    IsConnected = true;
+    INT.BIT.BLE_CONNECTED = 1;
     Serial.println("Connected");
   };
 
   void onDisconnect(BLEServer *pServer)
   {
-    IsConnected = false;
     pServer->startAdvertising();
+    INT.BIT.BLE_DISCONNECTED = 1;
     Serial.println("Disconnected");
   }
 };
@@ -46,8 +46,7 @@ class MyCallbacks : public BLECharacteristicCallbacks
       {
       case 0x01:
         //機器情報取得
-        pCharacteristic->setValue("device_version," + device_version);
-        pCharacteristic->notify();
+        INT.BIT.CMD_GET_DEVICE_INFO = 1;
         break;
       default:
         break;
@@ -59,11 +58,11 @@ class MyCallbacks : public BLECharacteristicCallbacks
       {
       case 0x00:
         //測定開始
-        IsMeasStop = false;
+        INT.BIT.CMD_MEAS_START = 1;
         break;
       case 0x01:
         //測定終了
-        IsMeasStop = true;
+        INT.BIT.CMD_MEAS_STOP = 1;
         break;
       default:
         break;
@@ -77,25 +76,32 @@ class MyCallbacks : public BLECharacteristicCallbacks
         // SSID
         if (len_data > 2)
         {
-          wifi_ssid = data.substr(2);
-          Serial.println(wifi_ssid.c_str());
+          INT.BIT.CMD_SET_WIFI_SSID = 1;
+          SYS.BLE_ARG = data.substr(2);
         }
-        pCharacteristic->setValue("wifi_ssid," + wifi_ssid);
-        pCharacteristic->notify();
+        else
+        {
+          INT.BIT.CMD_GET_WIFI_SSID = 1;
+        }
         break;
       case 0x01:
         // PW
         if (len_data > 2)
         {
-          wifi_pw = data.substr(2);
-          Serial.println(wifi_pw.c_str());
+          INT.BIT.CMD_SET_WIFI_PW = 1;
+          SYS.BLE_ARG = data.substr(2);
         }
-        pCharacteristic->setValue("wifi_pw," + wifi_pw);
-        pCharacteristic->notify();
+        else
+        {
+          INT.BIT.CMD_GET_WIFI_PW = 1;
+        }
         break;
       case 0x02:
-        pCharacteristic->setValue("device_ip" + (std::string)(WiFi.localIP().toString().c_str()));
-        pCharacteristic->notify();
+        INT.BIT.CMD_GET_WIFI_IP = 1;
+        break;
+      case 0x03:
+        INT.BIT.CMD_CONNECT_WIFI = 1;
+        break;
       default:
         break;
       }
@@ -105,13 +111,17 @@ class MyCallbacks : public BLECharacteristicCallbacks
       switch (data[1])
       {
       case 0x00:
-        IsMeasStop = true;
-        IsFirmwareUpdating = true;
+        INT.BIT.CMD_FW_UPDATE = 1;
         break;
       case 0x01:
-        break;
-      default:
-        break;
+        if (len_data > 2)
+        {
+          INT.BIT.CMD_SET_FW_HOST = 1;
+        }
+        else
+        {
+          INT.BIT.CMD_GET_FW_HOST = 1;
+        }
       }
       break;
     default:
