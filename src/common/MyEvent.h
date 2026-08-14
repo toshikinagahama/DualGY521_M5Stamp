@@ -1,0 +1,37 @@
+#ifndef MYEVENT_H
+#define MYEVENT_H
+
+#include <Arduino.h>
+
+#define PAYLOAD_SIZE 64
+
+enum MyEventID {
+  EVT_NOP = 0,
+  EVT_BLE_CONNECTED,
+  EVT_BLE_DISCONNECTED,
+  EVT_CMD_MEAS_START,
+  EVT_CMD_MEAS_STOP,
+  EVT_CMD_GET_DEVICE_INFO,
+  EVT_CMD_SET_WIFI_SSID,
+  EVT_CMD_GET_WIFI_SSID,
+  EVT_CMD_SET_WIFI_PW,
+  EVT_CMD_GET_WIFI_PW,
+  EVT_CMD_GET_WIFI_IP,
+  EVT_CMD_CONNECT_WIFI,
+  EVT_CMD_SET_FW_HOST,
+  EVT_CMD_GET_FW_HOST,
+  EVT_CMD_FW_UPDATE,
+  EVT_FW_UPDATING,
+  EVT_CMD_SET_SENSOR_CFG,
+  EVT_CMD_GET_SENSOR_CFG,
+  EVT_MAX
+};
+
+typedef struct {
+  MyEventID id;
+  uint8_t payload[PAYLOAD_SIZE];
+  size_t length;
+  unsigned long timestamp;
+} MyEvent;
+
+#endif // MYEVENT_H

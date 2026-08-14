@@ -1,4 +1,1 @@
-#include "global.h"
-
-INT_T INT;
-SYS_T SYS;
+// Legacy global.cpp replaced by src/common/MyGlobal.cpp

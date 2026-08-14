@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DualGY521 M5Stamp - BLE Debug Controller</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #0f172a;
+      --card-bg: rgba(30, 41, 59, 0.7);
+      --card-border: rgba(255, 255, 255, 0.1);
+      --primary: #6366f1;
+      --primary-hover: #4f46e5;
+      --accent-cyan: #06b6d4;
+      --accent-green: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-red: #ef4444;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: radial-gradient(circle at top right, #1e1b4b, var(--bg-dark));
+      color: var(--text-main);
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--card-border);
+      padding: 1.25rem 2rem;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    .title-area {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .title-area h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #a5b4fc, #38bdf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.35rem 0.85rem;
+      border-radius: 9999px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      background: rgba(239, 68, 68, 0.2);
+      color: var(--accent-red);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      transition: all 0.3s ease;
+    }
+
+    .status-badge.connected {
+      background: rgba(16, 185, 129, 0.2);
+      color: var(--accent-green);
+      border-color: rgba(16, 185, 129, 0.4);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: currentColor;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+    }
+
+    .btn {
+      font-family: inherit;
+      font-weight: 600;
+      font-size: 0.9rem;
+      padding: 0.6rem 1.25rem;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(99, 102, 241, 0.6);
+    }
+
+    .btn-danger {
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(239, 68, 68, 0.4);
+    }
+
+    .btn-danger:hover {
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text-main);
+      border: 1px solid var(--card-border);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.18);
+    }
+
+    .btn-sm {
+      padding: 0.4rem 0.75rem;
+      font-size: 0.8rem;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .card {
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    }
+
+    .card-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #cbd5e1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 0.75rem;
+    }
+
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .input-group label {
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--text-muted);
+    }
+
+    .input-row {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    input[type="text"], input[type="password"], select {
+      flex: 1;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 0.6rem 0.8rem;
+      color: var(--text-main);
+      font-family: inherit;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.2s ease;
+    }
+
+    input[type="text"]:focus, input[type="password"]:focus, select:focus {
+      border-color: var(--primary);
+    }
+
+    .info-display {
+      background: rgba(15, 23, 42, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .info-label {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .info-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--accent-cyan);
+    }
+
+    /* センサ表示スタイル */
+    .sensor-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    .sensor-box {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .sensor-header {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #a5b4fc;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .axis-row {
+      display: flex;
+      justify-content: space-between;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+    }
+
+    .axis-tag {
+      color: var(--text-muted);
+    }
+
+    .axis-val {
+      color: #f1f5f9;
+      font-weight: 500;
+    }
+
+    /* 波形グラフ スタイル */
+    .chart-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    @media (max-width: 768px) {
+      .chart-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .chart-box {
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 0.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .chart-canvas {
+      width: 100%;
+      height: 140px;
+      background: #090d16;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .chart-legend {
+      display: flex;
+      gap: 0.8rem;
+      font-size: 0.75rem;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+
+    .legend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    /* ログエリア */
+    .log-container {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 1rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      height: 180px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+
+    .log-entry {
+      line-height: 1.4;
+      word-break: break-all;
+    }
+
+    .log-time {
+      color: var(--text-muted);
+      margin-right: 0.5rem;
+    }
+
+    .log-rx {
+      color: var(--accent-cyan);
+    }
+
+    .log-tx {
+      color: var(--accent-amber);
+    }
+
+    .log-err {
+      color: var(--accent-red);
+    }
+
+    .log-sys {
+      color: var(--accent-green);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <div class="title-area">
+        <h1>DualGY521 Controller</h1>
+        <div id="statusBadge" class="status-badge">
+          <span class="status-dot"></span>
+          <span id="statusText">Disconnected</span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button id="btnConnect" class="btn btn-primary">
+          <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          BLE接続
+        </button>
+        <button id="btnDisconnect" class="btn btn-danger" disabled>
+          切断
+        </button>
+      </div>
+    </header>
+
+    <!-- Dashboard Grid -->
+    <div class="dashboard-grid">
+      <!-- Device & Battery Info Card -->
+      <div class="card">
+        <div class="card-title">
+          <span>デバイス情報 & ステータス</span>
+          <button id="btnGetDevInfo" class="btn btn-secondary btn-sm" disabled>更新</button>
+        </div>
+        <div class="info-display">
+          <span class="info-label">FWバージョン</span>
+          <span id="valDevVersion" class="info-val">--</span>
+        </div>
+        <div class="info-display">
+          <span class="info-label">Wi-Fi IPアドレス</span>
+          <span id="valWifiIp" class="info-val">--</span>
+        </div>
+      </div>
+
+      <!-- Wi-Fi Settings Card -->
+      <div class="card">
+        <div class="card-title">
+          <span>Wi-Fi 設定</span>
+          <button id="btnConnectWifi" class="btn btn-primary btn-sm" disabled>Wi-Fi接続実行</button>
+        </div>
+        
+        <div class="input-group">
+          <label>SSID</label>
+          <div class="input-row">
+            <input type="text" id="inputSsid" placeholder="Wi-Fi SSID">
+            <button id="btnSetSsid" class="btn btn-secondary btn-sm" disabled>設定</button>
+            <button id="btnGetSsid" class="btn btn-secondary btn-sm" disabled>取得</button>
+          </div>
+        </div>
+
+        <div class="input-group">
+          <label>パスワード</label>
+          <div class="input-row">
+            <input type="password" id="inputPw" placeholder="Wi-Fi Password">
+            <button id="btnSetPw" class="btn btn-secondary btn-sm" disabled>設定</button>
+            <button id="btnGetPw" class="btn btn-secondary btn-sm" disabled>取得</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Firmware OTA Card -->
+      <div class="card">
+        <div class="card-title">
+          <span>OTA / ファームウェア設定</span>
+        </div>
+        
+        <div class="input-group">
+          <label>FW Host アドレス</label>
+          <div class="input-row">
+            <input type="text" id="inputFwHost" placeholder="e.g. 192.168.10.5">
+            <button id="btnSetFwHost" class="btn btn-secondary btn-sm" disabled>設定</button>
+            <button id="btnGetFwHost" class="btn btn-secondary btn-sm" disabled>取得</button>
+          </div>
+        </div>
+
+        <div style="margin-top: 0.5rem;">
+          <button id="btnTriggerFwUpdate" class="btn btn-danger btn-sm" style="width: 100%; justify-content: center;" disabled>
+            FWアップデート開始 (OTAモード移行)
+          </button>
+        </div>
+      </div>
+
+      <!-- GY-521 Sensor Config Card -->
+      <div class="card">
+        <div class="card-title">
+          <span>GY-521 センサパラメータ設定</span>
+          <div style="display: flex; gap: 0.4rem;">
+            <button id="btnSetSensorCfg" class="btn btn-primary btn-sm" disabled>設定適用</button>
+            <button id="btnGetSensorCfg" class="btn btn-secondary btn-sm" disabled>取得</button>
+          </div>
+        </div>
+
+        <div class="input-group">
+          <label>加速度フルスケールレンジ</label>
+          <select id="selectAccelRange">
+            <option value="0">±2g (デフォルト)</option>
+            <option value="1">±4g</option>
+            <option value="2">±8g</option>
+            <option value="3">±16g</option>
+          </select>
+        </div>
+
+        <div class="input-group">
+          <label>ジャイロフルスケールレンジ</label>
+          <select id="selectGyroRange">
+            <option value="0">±250 dps (デフォルト)</option>
+            <option value="1">±500 dps</option>
+            <option value="2">±1000 dps</option>
+            <option value="3">±2000 dps</option>
+          </select>
+        </div>
+
+        <div class="input-group">
+          <label>動作検出スレッショルド (0〜255)</label>
+          <input type="text" id="inputMotionThresh" value="1" placeholder="1">
+        </div>
+      </div>
+
+      <!-- Realtime Sensor Data Card -->
+      <div class="card" style="grid-column: span 1 / -1;">
+        <div class="card-title">
+          <span>6軸センサ リアルタイムデータ (GY-521 × 2)</span>
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <span class="info-label">Packet Count: <strong id="valPacketCnt" style="color: var(--accent-amber);">0</strong></span>
+            <button id="btnStartMeas" class="btn btn-primary btn-sm" disabled>測定開始</button>
+            <button id="btnStopMeas" class="btn btn-danger btn-sm" disabled>測定停止</button>
+          </div>
+        </div>
+
+        <div class="sensor-grid">
+          <!-- Sensor 1 -->
+          <div class="sensor-box">
+            <div class="sensor-header">GY-521 #1 (PRIMARY)</div>
+            <div class="axis-row"><span class="axis-tag">Acc X:</span><span id="s1_ax" class="axis-val">0</span></div>
+            <div class="axis-row"><span class="axis-tag">Acc Y:</span><span id="s1_ay" class="axis-val">0</span></div>
+            <div class="axis-row"><span class="axis-tag">Acc Z:</span><span id="s1_az" class="axis-val">0</span></div>
+            <div class="axis-row" style="margin-top: 0.25rem;"><span class="axis-tag">Gyro X:</span><span id="s1_gx" class="axis-val">0</span></div>
+            <div class="axis-row"><span class="axis-tag">Gyro Y:</span><span id="s1_gy" class="axis-val">0</span></div>
+            <div class="axis-row"><span class="axis-tag">Gyro Z:</span><span id="s1_gz" class="axis-val">0</span></div>
+          </div>
+
+          <!-- Sensor 2 -->
+          <div class="sensor-box">
+            <div class="sensor-header">GY-521 #2 (SECONDARY)</div>
+            <div class="axis-row"><span class="axis-tag">Acc X:</span><span id="s2_ax" class="axis-val">0</span></div>
+            <div class="axis-row"><span class="axis-tag">Acc Y:</span><span id="s2_ay" class="axis-val">0</span></div>
+            <div class="axis-row"><span class="axis-tag">Acc Z:</span><span id="s2_az" class="axis-val">0</span></div>
+            <div class="axis-row" style="margin-top: 0.25rem;"><span class="axis-tag">Gyro X:</span><span id="s2_gx" class="axis-val">0</span></div>
+            <div class="axis-row"><span class="axis-tag">Gyro Y:</span><span id="s2_gy" class="axis-val">0</span></div>
+            <div class="axis-row"><span class="axis-tag">Gyro Z:</span><span id="s2_gz" class="axis-val">0</span></div>
+          </div>
+        </div>
+
+        <!-- リアルタイム波形チャートエリア -->
+        <div style="margin-top: 1rem; display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">リアルタイム波形モニター</span>
+          <div style="display: flex; gap: 0.4rem;">
+            <button id="btnChartModeAcc" class="btn btn-primary btn-sm">加速度 (Acc)</button>
+            <button id="btnChartModeGyro" class="btn btn-secondary btn-sm">角速度 (Gyro)</button>
+          </div>
+        </div>
+
+        <div class="chart-grid">
+          <!-- Chart 1 -->
+          <div class="chart-box">
+            <div class="chart-header">
+              <span>GY-521 #1 波形</span>
+              <div class="chart-legend">
+                <span class="legend-item"><span class="legend-dot" style="background: #f43f5e;"></span>X</span>
+                <span class="legend-item"><span class="legend-dot" style="background: #10b981;"></span>Y</span>
+                <span class="legend-item"><span class="legend-dot" style="background: #3b82f6;"></span>Z</span>
+              </div>
+            </div>
+            <canvas id="canvasSensor1" class="chart-canvas" width="400" height="140"></canvas>
+          </div>
+
+          <!-- Chart 2 -->
+          <div class="chart-box">
+            <div class="chart-header">
+              <span>GY-521 #2 波形</span>
+              <div class="chart-legend">
+                <span class="legend-item"><span class="legend-dot" style="background: #f43f5e;"></span>X</span>
+                <span class="legend-item"><span class="legend-dot" style="background: #10b981;"></span>Y</span>
+                <span class="legend-item"><span class="legend-dot" style="background: #3b82f6;"></span>Z</span>
+              </div>
+            </div>
+            <canvas id="canvasSensor2" class="chart-canvas" width="400" height="140"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Console Logs Card -->
+    <div class="card">
+      <div class="card-title">
+        <span>通信ログ</span>
+        <button id="btnClearLog" class="btn btn-secondary btn-sm">ログ消去</button>
+      </div>
+      <div id="logArea" class="log-container"></div>
+    </div>
+  </div>
+
+  <script>
+    // BLE Service & Characteristic UUIDs
+    const SERVICE_UUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
+    const CHARACTERISTIC_UUID = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
+
+    let bleDevice = null;
+    let bleServer = null;
+    let mainChar = null;
+
+    // DOM Elements
+    const statusBadge = document.getElementById('statusBadge');
+    const statusText = document.getElementById('statusText');
+    const btnConnect = document.getElementById('btnConnect');
+    const btnDisconnect = document.getElementById('btnDisconnect');
+    const logArea = document.getElementById('logArea');
+
+    const interactiveBtns = [
+      'btnGetDevInfo', 'btnConnectWifi', 'btnSetSsid', 'btnGetSsid',
+      'btnSetPw', 'btnGetPw', 'btnSetFwHost', 'btnGetFwHost',
+      'btnTriggerFwUpdate', 'btnStartMeas', 'btnStopMeas',
+      'btnSetSensorCfg', 'btnGetSensorCfg'
+    ];
+
+    let latestSensorData = null;
+    let renderTimer = null;
+
+    // 10Hz (100ms周期) スロットリングUI描画ループ
+    function start10HzRenderer() {
+      if (renderTimer) clearInterval(renderTimer);
+      renderTimer = setInterval(() => {
+        if (latestSensorData) {
+          renderSensorUI(latestSensorData);
+        }
+      }, 100);
+    }
+
+    // Logging Utility
+    function log(msg, type = 'sys') {
+      const now = new Date();
+      const timeStr = now.toTimeString().split(' ')[0] + '.' + String(now.getMilliseconds()).padStart(3, '0');
+      const div = document.createElement('div');
+      div.className = `log-entry log-${type}`;
+      div.innerHTML = `<span class="log-time">[${timeStr}]</span> ${escapeHtml(msg)}`;
+      logArea.appendChild(div);
+      logArea.scrollTop = logArea.scrollHeight;
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function setUIState(connected) {
+      if (connected) {
+        statusBadge.classList.add('connected');
+        statusText.textContent = 'Connected';
+        btnConnect.disabled = true;
+        btnDisconnect.disabled = false;
+        interactiveBtns.forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.disabled = false;
+        });
+      } else {
+        statusBadge.classList.remove('connected');
+        statusText.textContent = 'Disconnected';
+        btnConnect.disabled = false;
+        btnDisconnect.disabled = true;
+        interactiveBtns.forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.disabled = true;
+        });
+      }
+    }
+
+    // Connect BLE
+    async function connectBLE() {
+      try {
+        log('BLEデバイスの検索中...', 'sys');
+        bleDevice = await navigator.bluetooth.requestDevice({
+          filters: [{ name: 'DualGY521_M5Stamp' }, { namePrefix: 'Hama' }],
+          optionalServices: [SERVICE_UUID]
+        });
+
+        bleDevice.addEventListener('gattserverdisconnected', onDisconnected);
+
+        log(`デバイス "${bleDevice.name}" に接続中...`, 'sys');
+        bleServer = await bleDevice.gatt.connect();
+
+        // Main Custom Service
+        const service = await bleServer.getPrimaryService(SERVICE_UUID);
+        mainChar = await service.getCharacteristic(CHARACTERISTIC_UUID);
+        await mainChar.startNotifications();
+        mainChar.addEventListener('characteristicvaluechanged', handleMainNotification);
+
+        setUIState(true);
+        log('BLE接続が正常に完了しました', 'sys');
+
+        start10HzRenderer();
+
+        // Initial Data Fetch
+        await sendCommand([0x00, 0x01]); // Device Info
+        await sendCommand([0x02, 0x02]); // Wifi IP
+        await sendCommand([0x04, 0x01]); // GY-521 Sensor Config
+      } catch (error) {
+        log('BLE接続エラー: ' + error.message, 'err');
+        setUIState(false);
+      }
+    }
+
+    function disconnectBLE() {
+      if (bleDevice && bleDevice.gatt.connected) {
+        bleDevice.gatt.disconnect();
+      }
+    }
+
+    function onDisconnected() {
+      log('BLE切断されました', 'err');
+      setUIState(false);
+    }
+
+    // Command Helper
+    async function sendCommand(bytesArray) {
+      if (!mainChar) return;
+      try {
+        const data = new Uint8Array(bytesArray);
+        await mainChar.writeValue(data);
+        log(`TX -> [${Array.from(data).map(b => '0x' + b.toString(16).padStart(2, '0')).join(', ')}]`, 'tx');
+      } catch (e) {
+        log('送信エラー: ' + e.message, 'err');
+      }
+    }
+
+    async function sendCommandWithPayload(cmdCat, cmdType, strPayload) {
+      const encoder = new TextEncoder();
+      const payloadBytes = encoder.encode(strPayload);
+      const fullCmd = new Uint8Array(2 + payloadBytes.length);
+      fullCmd[0] = cmdCat;
+      fullCmd[1] = cmdType;
+      fullCmd.set(payloadBytes, 2);
+      await mainChar.writeValue(fullCmd);
+      log(`TX -> Cat:0x${cmdCat.toString(16)}, Cmd:0x${cmdType.toString(16)}, Payload: "${strPayload}"`, 'tx');
+    }
+
+    // Notification Handlers
+    function handleMainNotification(event) {
+      const value = event.target.value;
+      const len = value.byteLength;
+
+      // Check if Binary Sensor Data (28 bytes)
+      if (len === 28 && value.getUint8(0) === 0x01 && value.getUint8(1) === 0x01) {
+        latestSensorData = value;
+        return;
+      }
+
+      // Text Notifications
+      const decoder = new TextDecoder('utf-8');
+      const text = decoder.decode(value);
+      log(`RX <- ${text}`, 'rx');
+
+      const parts = text.split(',');
+      if (parts.length >= 2) {
+        const key = parts[0];
+        const val = parts.slice(1).join(',');
+        if (key === 'device_version') document.getElementById('valDevVersion').textContent = val;
+        if (key === 'wifi_ssid') document.getElementById('inputSsid').value = val;
+        if (key === 'wifi_pw') document.getElementById('inputPw').value = val;
+        if (key === 'device_ip') document.getElementById('valWifiIp').textContent = val || '未接続';
+        if (key === 'fw_host') document.getElementById('inputFwHost').value = val;
+        if (key === 'sensor_cfg') {
+          try {
+            const cfg = JSON.parse(val);
+            if (cfg.accel_range !== undefined) document.getElementById('selectAccelRange').value = cfg.accel_range;
+            if (cfg.gyro_range !== undefined) document.getElementById('selectGyroRange').value = cfg.gyro_range;
+            if (cfg.motion_threshold !== undefined) document.getElementById('inputMotionThresh').value = cfg.motion_threshold;
+          } catch(e){}
+        }
+      }
+    }
+
+    let chartDisplayMode = 'acc'; // 'acc' or 'gyro'
+    const MAX_HISTORY_LEN = 60;
+    const historyS1 = [];
+    const historyS2 = [];
+
+    // Render Binary Sensor Data (Called at 10Hz)
+    function renderSensorUI(dataView) {
+      const cnt = dataView.getUint16(2, true);
+      document.getElementById('valPacketCnt').textContent = cnt;
+
+      // GY-521 #1 (offset 4)
+      const s1_ax = dataView.getInt16(4, true);
+      const s1_ay = dataView.getInt16(6, true);
+      const s1_az = dataView.getInt16(8, true);
+      const s1_gx = dataView.getInt16(10, true);
+      const s1_gy = dataView.getInt16(12, true);
+      const s1_gz = dataView.getInt16(14, true);
+
+      // GY-521 #2 (offset 16)
+      const s2_ax = dataView.getInt16(16, true);
+      const s2_ay = dataView.getInt16(18, true);
+      const s2_az = dataView.getInt16(20, true);
+      const s2_gx = dataView.getInt16(22, true);
+      const s2_gy = dataView.getInt16(24, true);
+      const s2_gz = dataView.getInt16(26, true);
+
+      document.getElementById('s1_ax').textContent = s1_ax;
+      document.getElementById('s1_ay').textContent = s1_ay;
+      document.getElementById('s1_az').textContent = s1_az;
+      document.getElementById('s1_gx').textContent = s1_gx;
+      document.getElementById('s1_gy').textContent = s1_gy;
+      document.getElementById('s1_gz').textContent = s1_gz;
+
+      document.getElementById('s2_ax').textContent = s2_ax;
+      document.getElementById('s2_ay').textContent = s2_ay;
+      document.getElementById('s2_az').textContent = s2_az;
+      document.getElementById('s2_gx').textContent = s2_gx;
+      document.getElementById('s2_gy').textContent = s2_gy;
+      document.getElementById('s2_gz').textContent = s2_gz;
+
+      // Push to History Buffers
+      historyS1.push({ ax: s1_ax, ay: s1_ay, az: s1_az, gx: s1_gx, gy: s1_gy, gz: s1_gz });
+      if (historyS1.length > MAX_HISTORY_LEN) historyS1.shift();
+
+      historyS2.push({ ax: s2_ax, ay: s2_ay, az: s2_az, gx: s2_gx, gy: s2_gy, gz: s2_gz });
+      if (historyS2.length > MAX_HISTORY_LEN) historyS2.shift();
+
+      // Render Charts
+      drawWaveformChart('canvasSensor1', historyS1);
+      drawWaveformChart('canvasSensor2', historyS2);
+    }
+
+    // HTML5 Canvas 波形描画関数 (10Hz 超高速)
+    function drawWaveformChart(canvasId, historyData) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width;
+      const h = canvas.height;
+
+      // Background & Grid
+      ctx.fillStyle = '#090d16';
+      ctx.fillRect(0, 0, w, h);
+
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      // Center Line
+      ctx.moveTo(0, h / 2);
+      ctx.lineTo(w, h / 2);
+      // Grid Horizontal
+      ctx.moveTo(0, h * 0.25);
+      ctx.lineTo(w, h * 0.25);
+      ctx.moveTo(0, h * 0.75);
+      ctx.lineTo(w, h * 0.75);
+      ctx.stroke();
+
+      if (historyData.length < 2) return;
+
+      const maxVal = (chartDisplayMode === 'acc') ? 32768 : 32768; // INT16 full range
+      const stepX = w / (MAX_HISTORY_LEN - 1);
+
+      // Draw Lines for X, Y, Z
+      const keys = (chartDisplayMode === 'acc') ? ['ax', 'ay', 'az'] : ['gx', 'gy', 'gz'];
+      const colors = ['#f43f5e', '#10b981', '#3b82f6'];
+
+      keys.forEach((key, colorIdx) => {
+        ctx.strokeStyle = colors[colorIdx];
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+
+        historyData.forEach((item, idx) => {
+          const val = item[key];
+          const x = idx * stepX;
+          // Scale to Canvas Height (Center is h/2)
+          const normY = (val / maxVal) * (h / 2 * 0.9);
+          const y = (h / 2) - normY;
+
+          if (idx === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+
+        ctx.stroke();
+      });
+    }
+
+    // Event Listeners
+    btnConnect.addEventListener('click', connectBLE);
+    btnDisconnect.addEventListener('click', disconnectBLE);
+    document.getElementById('btnClearLog').addEventListener('click', () => logArea.innerHTML = '');
+
+    // Chart Mode Toggle Buttons
+    const btnModeAcc = document.getElementById('btnChartModeAcc');
+    const btnModeGyro = document.getElementById('btnChartModeGyro');
+
+    btnModeAcc.addEventListener('click', () => {
+      chartDisplayMode = 'acc';
+      btnModeAcc.className = 'btn btn-primary btn-sm';
+      btnModeGyro.className = 'btn btn-secondary btn-sm';
+      if (historyS1.length > 0) {
+        drawWaveformChart('canvasSensor1', historyS1);
+        drawWaveformChart('canvasSensor2', historyS2);
+      }
+    });
+
+    btnModeGyro.addEventListener('click', () => {
+      chartDisplayMode = 'gyro';
+      btnModeGyro.className = 'btn btn-primary btn-sm';
+      btnModeAcc.className = 'btn btn-secondary btn-sm';
+      if (historyS1.length > 0) {
+        drawWaveformChart('canvasSensor1', historyS1);
+        drawWaveformChart('canvasSensor2', historyS2);
+      }
+    });
+
+    // Command Buttons
+    document.getElementById('btnGetDevInfo').addEventListener('click', () => sendCommand([0x00, 0x01]));
+    document.getElementById('btnGetSsid').addEventListener('click', () => sendCommand([0x02, 0x00]));
+    document.getElementById('btnSetSsid').addEventListener('click', () => {
+      const val = document.getElementById('inputSsid').value;
+      if (val) sendCommandWithPayload(0x02, 0x00, val);
+    });
+    document.getElementById('btnGetPw').addEventListener('click', () => sendCommand([0x02, 0x01]));
+    document.getElementById('btnSetPw').addEventListener('click', () => {
+      const val = document.getElementById('inputPw').value;
+      if (val) sendCommandWithPayload(0x02, 0x01, val);
+    });
+    document.getElementById('btnConnectWifi').addEventListener('click', () => sendCommand([0x02, 0x03]));
+    document.getElementById('btnGetFwHost').addEventListener('click', () => sendCommand([0x03, 0x01]));
+    document.getElementById('btnSetFwHost').addEventListener('click', () => {
+      const val = document.getElementById('inputFwHost').value;
+      if (val) sendCommandWithPayload(0x03, 0x01, val);
+    });
+    document.getElementById('btnTriggerFwUpdate').addEventListener('click', () => {
+      if (confirm('デバイスをFWアップデート(OTA)モードに切り替えますか？')) {
+        sendCommand([0x03, 0x00]);
+      }
+    });
+
+    document.getElementById('btnStartMeas').addEventListener('click', () => {
+      sendCommand([0x01, 0x00]);
+      start10HzRenderer();
+    });
+    document.getElementById('btnStopMeas').addEventListener('click', () => sendCommand([0x01, 0x01]));
+
+    document.getElementById('btnGetSensorCfg').addEventListener('click', () => sendCommand([0x04, 0x01]));
+    document.getElementById('btnSetSensorCfg').addEventListener('click', () => {
+      const acc = parseInt(document.getElementById('selectAccelRange').value);
+      const gyro = parseInt(document.getElementById('selectGyroRange').value);
+      const thresh = parseInt(document.getElementById('inputMotionThresh').value) || 1;
+      sendCommand([0x04, 0x00, acc, gyro, thresh]);
+    });
+  </script>
+</body>
+</html>

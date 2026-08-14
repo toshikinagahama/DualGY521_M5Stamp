@@ -11,16 +11,29 @@ void SixAxisSensor::initialize()
   this->sensor2 = new MPU6050(this->addr2);
   this->sensor1->initialize();
   this->sensor2->initialize();
-  // set full scale range
-  this->sensor1->setFullScaleAccelRange(2);
-  this->sensor1->setFullScaleGyroRange(2);
-  this->sensor2->setFullScaleAccelRange(2);
-  this->sensor2->setFullScaleGyroRange(2);
-  // caribrate
-  // this->sensor1->CalibrateAccel();
-  // this->sensor1->CalibrateGyro();
-  // this->sensor2->CalibrateAccel();
-  // this->sensor2->CalibrateGyro();
+
+  // デフォルト設定の適用
+  applySettings(this->accel_range, this->gyro_range, this->motion_threshold);
+}
+
+void SixAxisSensor::applySettings(uint8_t accRange, uint8_t gyroRange, uint8_t motionThresh)
+{
+  this->accel_range = (accRange <= 3) ? accRange : 0;
+  this->gyro_range = (gyroRange <= 3) ? gyroRange : 0;
+  this->motion_threshold = motionThresh;
+
+  if (this->sensor1)
+  {
+    this->sensor1->setFullScaleAccelRange(this->accel_range);
+    this->sensor1->setFullScaleGyroRange(this->gyro_range);
+    this->sensor1->setMotionDetectionThreshold(this->motion_threshold);
+  }
+  if (this->sensor2)
+  {
+    this->sensor2->setFullScaleAccelRange(this->accel_range);
+    this->sensor2->setFullScaleGyroRange(this->gyro_range);
+    this->sensor2->setMotionDetectionThreshold(this->motion_threshold);
+  }
 }
 
 void SixAxisSensor::getValues()

@@ -5,33 +5,30 @@
 #include <BLE2902.h>
 #include <WiFi.h>
 #include "MyBLE.h"
-#include "global.h"
+#include "common/MyGlobal.h"
 
 class MyServerCallbacks : public BLEServerCallbacks
 {
   void onConnect(BLEServer *pServer)
   {
-    INT.BIT.BLE_CONNECTED = 1;
+    enqueue(EVT_BLE_CONNECTED);
     Serial.println("Connected");
   };
 
   void onDisconnect(BLEServer *pServer)
   {
     pServer->startAdvertising();
-    INT.BIT.BLE_DISCONNECTED = 1;
+    enqueue(EVT_BLE_DISCONNECTED);
     Serial.println("Disconnected");
   }
 };
 
 class MyCallbacks : public BLECharacteristicCallbacks
 {
-  // Read時
   void onRead(BLECharacteristic *pCharacteristic)
   {
-    // pCharacteristic->setValue("Hello World!");
   }
 
-  // Write時
   void onWrite(BLECharacteristic *pCharacteristic)
   {
     std::string data = pCharacteristic->getValue();
@@ -45,8 +42,7 @@ class MyCallbacks : public BLECharacteristicCallbacks
       switch (data[1])
       {
       case 0x01:
-        //機器情報取得
-        INT.BIT.CMD_GET_DEVICE_INFO = 1;
+        enqueue(EVT_CMD_GET_DEVICE_INFO);
         break;
       default:
         break;
@@ -57,12 +53,10 @@ class MyCallbacks : public BLECharacteristicCallbacks
       switch (data[1])
       {
       case 0x00:
-        //測定開始
-        INT.BIT.CMD_MEAS_START = 1;
+        enqueue(EVT_CMD_MEAS_START);
         break;
       case 0x01:
-        //測定終了
-        INT.BIT.CMD_MEAS_STOP = 1;
+        enqueue(EVT_CMD_MEAS_STOP);
         break;
       default:
         break;
@@ -76,31 +70,31 @@ class MyCallbacks : public BLECharacteristicCallbacks
         // SSID
         if (len_data > 2)
         {
-          INT.BIT.CMD_SET_WIFI_SSID = 1;
-          SYS.BLE_ARG = data.substr(2);
+          std::string arg = data.substr(2);
+          enqueue(EVT_CMD_SET_WIFI_SSID, arg.data(), arg.length());
         }
         else
         {
-          INT.BIT.CMD_GET_WIFI_SSID = 1;
+          enqueue(EVT_CMD_GET_WIFI_SSID);
         }
         break;
       case 0x01:
         // PW
         if (len_data > 2)
         {
-          INT.BIT.CMD_SET_WIFI_PW = 1;
-          SYS.BLE_ARG = data.substr(2);
+          std::string arg = data.substr(2);
+          enqueue(EVT_CMD_SET_WIFI_PW, arg.data(), arg.length());
         }
         else
         {
-          INT.BIT.CMD_GET_WIFI_PW = 1;
+          enqueue(EVT_CMD_GET_WIFI_PW);
         }
         break;
       case 0x02:
-        INT.BIT.CMD_GET_WIFI_IP = 1;
+        enqueue(EVT_CMD_GET_WIFI_IP);
         break;
       case 0x03:
-        INT.BIT.CMD_CONNECT_WIFI = 1;
+        enqueue(EVT_CMD_CONNECT_WIFI);
         break;
       default:
         break;
@@ -111,29 +105,41 @@ class MyCallbacks : public BLECharacteristicCallbacks
       switch (data[1])
       {
       case 0x00:
-        INT.BIT.CMD_FW_UPDATE = 1;
+        enqueue(EVT_CMD_FW_UPDATE);
         break;
       case 0x01:
         if (len_data > 2)
         {
-          INT.BIT.CMD_SET_FW_HOST = 1;
+          std::string arg = data.substr(2);
+          enqueue(EVT_CMD_SET_FW_HOST, arg.data(), arg.length());
         }
         else
         {
-          INT.BIT.CMD_GET_FW_HOST = 1;
+          enqueue(EVT_CMD_GET_FW_HOST);
         }
+        break;
+      }
+      break;
+    case 0x04:
+      // GY-521 センサ設定関係
+      switch (data[1])
+      {
+      case 0x00:
+        if (len_data >= 3)
+        {
+          std::string arg = data.substr(2);
+          enqueue(EVT_CMD_SET_SENSOR_CFG, arg.data(), arg.length());
+        }
+        break;
+      case 0x01:
+        enqueue(EVT_CMD_GET_SENSOR_CFG);
+        break;
       }
       break;
     default:
       Serial.println("Invalid cmd");
       break;
     }
-    Serial.printf("%d", len_data);
-    Serial.println("");
-    // Serial.printf("%x", data[0]);
-    // Serial.println("");
-    // Serial.printf("%x", data[1]);
-    // Serial.println("");
   }
 };
 
@@ -153,7 +159,6 @@ class MySecurity : public BLESecurityCallbacks
 
   void onPassKeyNotify(uint32_t pass_key)
   {
-    // ペアリング時のPINの表示
     Serial.println("onPassKeyNotify number");
     Serial.println(pass_key);
   }
@@ -169,25 +174,17 @@ class MySecurity : public BLESecurityCallbacks
     Serial.println("onAuthenticationComplete");
     if (cmpl.success)
     {
-      // ペアリング完了
       Serial.println("auth success");
     }
     else
     {
-      // ペアリング失敗
       Serial.println("auth failed");
     }
   }
 };
 
-/**
- *
- * 初期化
- *
- */
 void MyBLE::initialize()
 {
-
   BLEDevice::init("DualGY521_M5Stamp");
   BLEDevice::setEncryptionLevel(ESP_BLE_SEC_ENCRYPT_MITM);
   BLEDevice::setSecurityCallbacks(new MySecurity());
@@ -204,13 +201,6 @@ void MyBLE::initialize()
   pServer->setCallbacks(new MyServerCallbacks());
 
   pService = pServer->createService(SERVICE_UUID);
-  pBattery = pServer->createService(BatteryService);
-
-  pBatteryCharacteristic = pBattery->createCharacteristic(BLEUUID((uint16_t)0x2A19), BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY);
-  pBatteryDescriptor = new BLEDescriptor(BLEUUID((uint16_t)0x2901));
-  pBatteryCharacteristic->setValue("Percentage 0 - 100");
-  pBatteryCharacteristic->addDescriptor(pBatteryDescriptor);
-  pBatteryCharacteristic->addDescriptor(new BLE2902());
 
   pCharacteristic = pService->createCharacteristic(
       CHARACTERISTIC_UUID,
@@ -222,56 +212,32 @@ void MyBLE::initialize()
   pCharacteristic->addDescriptor(new BLE2902());
 
   pAdvertising = pServer->getAdvertising();
-  // pAdvertising->addServiceUUID(SERVICE_UUID);
-  // pAdvertising->addServiceUUID(BatteryService);
 }
 
-/**
- *
- * アドバタイズスタート
- */
 void MyBLE::advertiseStart()
 {
   pService->start();
-  pBattery->start();
   pAdvertising->start();
 }
 
-/**
- *
- * アドバタイズストップ
- */
 void MyBLE::advertiseStop()
 {
   pService->stop();
-  pBattery->stop();
   pAdvertising->stop();
 }
 
-/**
- *
- * notify
- */
 void MyBLE::notify(char *val)
 {
   pCharacteristic->setValue(val);
   pCharacteristic->notify();
 }
 
-/**
- *
- * notify(string)
- */
 void MyBLE::notify(std::string val)
 {
   pCharacteristic->setValue(val);
   pCharacteristic->notify();
 }
 
-/**
- *
- * notify(string)
- */
 void MyBLE::notify(uint8_t *val, size_t len)
 {
   pCharacteristic->setValue(val, len);
