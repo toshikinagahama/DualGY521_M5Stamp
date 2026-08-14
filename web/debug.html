@@ -7,6 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <style>
     :root {
       --bg-dark: #0f172a;
@@ -385,6 +386,46 @@
     .log-sys {
       color: var(--accent-green);
     }
+
+    /* タブ切り替えスタイル */
+    .tab-navigation {
+      display: flex;
+      gap: 0.5rem;
+      border-bottom: 1px solid var(--card-border);
+      padding-bottom: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .tab-btn {
+      padding: 0.6rem 1.25rem;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-muted);
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .tab-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text-main);
+    }
+
+    .tab-btn.active {
+      background: rgba(6, 182, 212, 0.15);
+      color: var(--accent-cyan);
+      border-color: rgba(6, 182, 212, 0.4);
+    }
+
+    .tab-pane {
+      display: none;
+    }
+
+    .tab-pane.active {
+      display: block;
+    }
   </style>
 </head>
 <body>
@@ -409,177 +450,212 @@
       </div>
     </header>
 
-    <!-- Dashboard Grid -->
-    <div class="dashboard-grid">
-      <!-- Device & Battery Info Card -->
-      <div class="card">
-        <div class="card-title">
-          <span>デバイス情報 & ステータス</span>
-          <button id="btnGetDevInfo" class="btn btn-secondary btn-sm" disabled>更新</button>
-        </div>
-        <div class="info-display">
-          <span class="info-label">FWバージョン</span>
-          <span id="valDevVersion" class="info-val">--</span>
-        </div>
-        <div class="info-display">
-          <span class="info-label">Wi-Fi IPアドレス</span>
-          <span id="valWifiIp" class="info-val">--</span>
-        </div>
-      </div>
+    <!-- Tab Navigation -->
+    <div class="tab-navigation">
+      <button class="tab-btn active" data-tab="tab-sensor">📊 センサ表示・リアルタイムデータ</button>
+      <button class="tab-btn" data-tab="tab-settings">⚙️ デバイス・システム設定</button>
+    </div>
 
-      <!-- Wi-Fi Settings Card -->
-      <div class="card">
-        <div class="card-title">
-          <span>Wi-Fi 設定</span>
-          <button id="btnConnectWifi" class="btn btn-primary btn-sm" disabled>Wi-Fi接続実行</button>
-        </div>
-        
-        <div class="input-group">
-          <label>SSID</label>
-          <div class="input-row">
-            <input type="text" id="inputSsid" placeholder="Wi-Fi SSID">
-            <button id="btnSetSsid" class="btn btn-secondary btn-sm" disabled>設定</button>
-            <button id="btnGetSsid" class="btn btn-secondary btn-sm" disabled>取得</button>
-          </div>
-        </div>
-
-        <div class="input-group">
-          <label>パスワード</label>
-          <div class="input-row">
-            <input type="password" id="inputPw" placeholder="Wi-Fi Password">
-            <button id="btnSetPw" class="btn btn-secondary btn-sm" disabled>設定</button>
-            <button id="btnGetPw" class="btn btn-secondary btn-sm" disabled>取得</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Firmware OTA Card -->
-      <div class="card">
-        <div class="card-title">
-          <span>OTA / ファームウェア設定</span>
-        </div>
-        
-        <div class="input-group">
-          <label>FW Host アドレス</label>
-          <div class="input-row">
-            <input type="text" id="inputFwHost" placeholder="e.g. 192.168.10.5">
-            <button id="btnSetFwHost" class="btn btn-secondary btn-sm" disabled>設定</button>
-            <button id="btnGetFwHost" class="btn btn-secondary btn-sm" disabled>取得</button>
-          </div>
-        </div>
-
-        <div style="margin-top: 0.5rem;">
-          <button id="btnTriggerFwUpdate" class="btn btn-danger btn-sm" style="width: 100%; justify-content: center;" disabled>
-            FWアップデート開始 (OTAモード移行)
-          </button>
-        </div>
-      </div>
-
-      <!-- GY-521 Sensor Config Card -->
-      <div class="card">
-        <div class="card-title">
-          <span>GY-521 センサパラメータ設定</span>
-          <div style="display: flex; gap: 0.4rem;">
-            <button id="btnSetSensorCfg" class="btn btn-primary btn-sm" disabled>設定適用</button>
-            <button id="btnGetSensorCfg" class="btn btn-secondary btn-sm" disabled>取得</button>
-          </div>
-        </div>
-
-        <div class="input-group">
-          <label>加速度フルスケールレンジ</label>
-          <select id="selectAccelRange">
-            <option value="0">±2g (デフォルト)</option>
-            <option value="1">±4g</option>
-            <option value="2">±8g</option>
-            <option value="3">±16g</option>
-          </select>
-        </div>
-
-        <div class="input-group">
-          <label>ジャイロフルスケールレンジ</label>
-          <select id="selectGyroRange">
-            <option value="0">±250 dps (デフォルト)</option>
-            <option value="1">±500 dps</option>
-            <option value="2">±1000 dps</option>
-            <option value="3">±2000 dps</option>
-          </select>
-        </div>
-
-        <div class="input-group">
-          <label>動作検出スレッショルド (0〜255)</label>
-          <input type="text" id="inputMotionThresh" value="1" placeholder="1">
-        </div>
-      </div>
-
-      <!-- Realtime Sensor Data Card -->
-      <div class="card" style="grid-column: span 1 / -1;">
-        <div class="card-title">
-          <span>6軸センサ リアルタイムデータ (GY-521 × 2)</span>
-          <div style="display: flex; gap: 0.5rem; align-items: center;">
-            <span class="info-label">Packet Count: <strong id="valPacketCnt" style="color: var(--accent-amber);">0</strong></span>
-            <button id="btnStartMeas" class="btn btn-primary btn-sm" disabled>測定開始</button>
-            <button id="btnStopMeas" class="btn btn-danger btn-sm" disabled>測定停止</button>
-          </div>
-        </div>
-
-        <div class="sensor-grid">
-          <!-- Sensor 1 -->
-          <div class="sensor-box">
-            <div class="sensor-header">GY-521 #1 (PRIMARY)</div>
-            <div class="axis-row"><span class="axis-tag">Acc X:</span><span id="s1_ax" class="axis-val">0</span></div>
-            <div class="axis-row"><span class="axis-tag">Acc Y:</span><span id="s1_ay" class="axis-val">0</span></div>
-            <div class="axis-row"><span class="axis-tag">Acc Z:</span><span id="s1_az" class="axis-val">0</span></div>
-            <div class="axis-row" style="margin-top: 0.25rem;"><span class="axis-tag">Gyro X:</span><span id="s1_gx" class="axis-val">0</span></div>
-            <div class="axis-row"><span class="axis-tag">Gyro Y:</span><span id="s1_gy" class="axis-val">0</span></div>
-            <div class="axis-row"><span class="axis-tag">Gyro Z:</span><span id="s1_gz" class="axis-val">0</span></div>
-          </div>
-
-          <!-- Sensor 2 -->
-          <div class="sensor-box">
-            <div class="sensor-header">GY-521 #2 (SECONDARY)</div>
-            <div class="axis-row"><span class="axis-tag">Acc X:</span><span id="s2_ax" class="axis-val">0</span></div>
-            <div class="axis-row"><span class="axis-tag">Acc Y:</span><span id="s2_ay" class="axis-val">0</span></div>
-            <div class="axis-row"><span class="axis-tag">Acc Z:</span><span id="s2_az" class="axis-val">0</span></div>
-            <div class="axis-row" style="margin-top: 0.25rem;"><span class="axis-tag">Gyro X:</span><span id="s2_gx" class="axis-val">0</span></div>
-            <div class="axis-row"><span class="axis-tag">Gyro Y:</span><span id="s2_gy" class="axis-val">0</span></div>
-            <div class="axis-row"><span class="axis-tag">Gyro Z:</span><span id="s2_gz" class="axis-val">0</span></div>
-          </div>
-        </div>
-
-        <!-- リアルタイム波形チャートエリア -->
-        <div style="margin-top: 1rem; display: flex; justify-content: space-between; align-items: center;">
-          <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">リアルタイム波形モニター</span>
-          <div style="display: flex; gap: 0.4rem;">
-            <button id="btnChartModeAcc" class="btn btn-primary btn-sm">加速度 (Acc)</button>
-            <button id="btnChartModeGyro" class="btn btn-secondary btn-sm">角速度 (Gyro)</button>
-          </div>
-        </div>
-
-        <div class="chart-grid">
-          <!-- Chart 1 -->
-          <div class="chart-box">
-            <div class="chart-header">
-              <span>GY-521 #1 波形</span>
-              <div class="chart-legend">
-                <span class="legend-item"><span class="legend-dot" style="background: #f43f5e;"></span>X</span>
-                <span class="legend-item"><span class="legend-dot" style="background: #10b981;"></span>Y</span>
-                <span class="legend-item"><span class="legend-dot" style="background: #3b82f6;"></span>Z</span>
-              </div>
+    <!-- Tab 1: センサ表示画面 -->
+    <div id="tab-sensor" class="tab-pane active">
+      <div class="dashboard-grid">
+        <!-- Realtime Sensor Data Card -->
+        <div class="card" style="grid-column: span 1 / -1;">
+          <div class="card-title">
+            <span>6軸センサ リアルタイムデータ (GY-521 × 2)</span>
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+              <span class="info-label">Packet Count: <strong id="valPacketCnt" style="color: var(--accent-amber);">0</strong></span>
+              <button id="btnStartMeas" class="btn btn-primary btn-sm" disabled>測定開始</button>
+              <button id="btnStopMeas" class="btn btn-danger btn-sm" disabled>測定停止</button>
             </div>
-            <canvas id="canvasSensor1" class="chart-canvas" width="400" height="140"></canvas>
           </div>
 
-          <!-- Chart 2 -->
-          <div class="chart-box">
-            <div class="chart-header">
-              <span>GY-521 #2 波形</span>
-              <div class="chart-legend">
-                <span class="legend-item"><span class="legend-dot" style="background: #f43f5e;"></span>X</span>
-                <span class="legend-item"><span class="legend-dot" style="background: #10b981;"></span>Y</span>
-                <span class="legend-item"><span class="legend-dot" style="background: #3b82f6;"></span>Z</span>
-              </div>
+          <div class="sensor-grid">
+            <!-- Sensor 1 -->
+            <div class="sensor-box">
+              <div class="sensor-header">GY-521 #1 (PRIMARY)</div>
+              <div class="axis-row"><span class="axis-tag">Acc X:</span><span id="s1_ax" class="axis-val">0</span></div>
+              <div class="axis-row"><span class="axis-tag">Acc Y:</span><span id="s1_ay" class="axis-val">0</span></div>
+              <div class="axis-row"><span class="axis-tag">Acc Z:</span><span id="s1_az" class="axis-val">0</span></div>
+              <div class="axis-row" style="margin-top: 0.25rem;"><span class="axis-tag">Gyro X:</span><span id="s1_gx" class="axis-val">0</span></div>
+              <div class="axis-row"><span class="axis-tag">Gyro Y:</span><span id="s1_gy" class="axis-val">0</span></div>
+              <div class="axis-row"><span class="axis-tag">Gyro Z:</span><span id="s1_gz" class="axis-val">0</span></div>
             </div>
-            <canvas id="canvasSensor2" class="chart-canvas" width="400" height="140"></canvas>
+
+            <!-- Sensor 2 -->
+            <div class="sensor-box">
+              <div class="sensor-header">GY-521 #2 (SECONDARY)</div>
+              <div class="axis-row"><span class="axis-tag">Acc X:</span><span id="s2_ax" class="axis-val">0</span></div>
+              <div class="axis-row"><span class="axis-tag">Acc Y:</span><span id="s2_ay" class="axis-val">0</span></div>
+              <div class="axis-row"><span class="axis-tag">Acc Z:</span><span id="s2_az" class="axis-val">0</span></div>
+              <div class="axis-row" style="margin-top: 0.25rem;"><span class="axis-tag">Gyro X:</span><span id="s2_gx" class="axis-val">0</span></div>
+              <div class="axis-row"><span class="axis-tag">Gyro Y:</span><span id="s2_gy" class="axis-val">0</span></div>
+              <div class="axis-row"><span class="axis-tag">Gyro Z:</span><span id="s2_gz" class="axis-val">0</span></div>
+            </div>
+          </div>
+
+          <!-- リアルタイム波形チャートエリア -->
+          <div style="margin-top: 1rem; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">リアルタイム波形モニター</span>
+            <div style="display: flex; gap: 0.4rem;">
+              <button id="btnChartModeAcc" class="btn btn-primary btn-sm">加速度 (Acc)</button>
+              <button id="btnChartModeGyro" class="btn btn-secondary btn-sm">角速度 (Gyro)</button>
+            </div>
+          </div>
+
+          <div class="chart-grid">
+            <!-- Chart 1 -->
+            <div class="chart-box">
+              <div class="chart-header">
+                <span>GY-521 #1 波形</span>
+                <div class="chart-legend">
+                  <span class="legend-item"><span class="legend-dot" style="background: #f43f5e;"></span>X</span>
+                  <span class="legend-item"><span class="legend-dot" style="background: #10b981;"></span>Y</span>
+                  <span class="legend-item"><span class="legend-dot" style="background: #3b82f6;"></span>Z</span>
+                </div>
+              </div>
+              <canvas id="canvasSensor1" class="chart-canvas" width="400" height="140"></canvas>
+            </div>
+
+            <!-- Chart 2 -->
+            <div class="chart-box">
+              <div class="chart-header">
+                <span>GY-521 #2 波形</span>
+                <div class="chart-legend">
+                  <span class="legend-item"><span class="legend-dot" style="background: #f43f5e;"></span>X</span>
+                  <span class="legend-item"><span class="legend-dot" style="background: #10b981;"></span>Y</span>
+                  <span class="legend-item"><span class="legend-dot" style="background: #3b82f6;"></span>Z</span>
+                </div>
+              </div>
+              <canvas id="canvasSensor2" class="chart-canvas" width="400" height="140"></canvas>
+            </div>
+          </div>
+
+          <!-- 3D 腕姿勢ビジュアルモニター (剛体：上腕 ＋ 前腕) -->
+          <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--card-border);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;">
+              <div>
+                <span style="font-size: 0.9rem; font-weight: 700; color: var(--accent-cyan);">💪 3D 腕姿勢モニター (上腕: GY-521 #1 / 前腕: GY-521 #2)</span>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">2つのセンサの相対回転姿勢を関節連動表示</div>
+              </div>
+              <button id="btnPoseCalibrate" class="btn btn-secondary btn-sm" style="border-color: var(--accent-cyan); color: var(--accent-cyan);">
+                📐 姿勢基準ゼロ点リセット (姿勢校正)
+              </button>
+            </div>
+            <div id="arm3dContainer" style="width: 100%; height: 260px; background: #090d16; border-radius: 10px; overflow: hidden; border: 1px solid var(--card-border);"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 2: 設定画面 -->
+    <div id="tab-settings" class="tab-pane">
+      <div class="dashboard-grid">
+        <!-- Device & Battery Info Card -->
+        <div class="card">
+          <div class="card-title">
+            <span>デバイス情報 & ステータス</span>
+            <button id="btnGetDevInfo" class="btn btn-secondary btn-sm" disabled>更新</button>
+          </div>
+          <div class="info-display">
+            <span class="info-label">FWバージョン</span>
+            <span id="valDevVersion" class="info-val">--</span>
+          </div>
+          <div class="info-display">
+            <span class="info-label">Wi-Fi IPアドレス</span>
+            <span id="valWifiIp" class="info-val">--</span>
+          </div>
+        </div>
+
+        <!-- Wi-Fi Settings Card -->
+        <div class="card">
+          <div class="card-title">
+            <span>Wi-Fi 設定</span>
+            <button id="btnConnectWifi" class="btn btn-primary btn-sm" disabled>Wi-Fi接続実行</button>
+          </div>
+          
+          <div class="input-group">
+            <label>SSID</label>
+            <div class="input-row">
+              <input type="text" id="inputSsid" placeholder="Wi-Fi SSID">
+              <button id="btnSetSsid" class="btn btn-secondary btn-sm" disabled>設定</button>
+              <button id="btnGetSsid" class="btn btn-secondary btn-sm" disabled>取得</button>
+            </div>
+          </div>
+
+          <div class="input-group">
+            <label>パスワード</label>
+            <div class="input-row">
+              <input type="password" id="inputPw" placeholder="Wi-Fi Password">
+              <button id="btnSetPw" class="btn btn-secondary btn-sm" disabled>設定</button>
+              <button id="btnGetPw" class="btn btn-secondary btn-sm" disabled>取得</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Firmware OTA Card -->
+        <div class="card">
+          <div class="card-title">
+            <span>OTA / ファームウェア設定</span>
+          </div>
+          
+          <div class="input-group">
+            <label>FW Host アドレス</label>
+            <div class="input-row">
+              <input type="text" id="inputFwHost" placeholder="e.g. 192.168.10.5">
+              <button id="btnSetFwHost" class="btn btn-secondary btn-sm" disabled>設定</button>
+              <button id="btnGetFwHost" class="btn btn-secondary btn-sm" disabled>取得</button>
+            </div>
+          </div>
+
+          <div style="margin-top: 0.5rem;">
+            <button id="btnTriggerFwUpdate" class="btn btn-danger btn-sm" style="width: 100%; justify-content: center;" disabled>
+              FWアップデート開始 (OTAモード移行)
+            </button>
+          </div>
+        </div>
+
+        <!-- GY-521 Sensor Config Card -->
+        <div class="card">
+          <div class="card-title">
+            <span>GY-521 センサパラメータ設定</span>
+            <div style="display: flex; gap: 0.4rem;">
+              <button id="btnSetSensorCfg" class="btn btn-primary btn-sm" disabled>設定適用</button>
+              <button id="btnGetSensorCfg" class="btn btn-secondary btn-sm" disabled>取得</button>
+            </div>
+          </div>
+
+          <div class="input-group">
+            <label>加速度フルスケールレンジ</label>
+            <select id="selectAccelRange">
+              <option value="0">±2g (デフォルト)</option>
+              <option value="1">±4g</option>
+              <option value="2">±8g</option>
+              <option value="3">±16g</option>
+            </select>
+          </div>
+
+          <div class="input-group">
+            <label>ジャイロフルスケールレンジ</label>
+            <select id="selectGyroRange">
+              <option value="0">±250 dps (デフォルト)</option>
+              <option value="1">±500 dps</option>
+              <option value="2">±1000 dps</option>
+              <option value="3">±2000 dps</option>
+            </select>
+          </div>
+
+          <div style="margin-top: 1rem; padding-top: 0.8rem; border-top: 1px solid var(--card-border);">
+            <div style="font-size: 0.8rem; font-weight: 600; color: var(--accent-cyan); margin-bottom: 0.4rem;">
+              🎯 ゼロ点キャリブレーション（校正手順）
+            </div>
+            <div style="font-size: 0.75rem; color: var(--text-muted); line-height: 1.4; margin-bottom: 0.6rem;">
+              1. デバイス（2つのGY-521）を<strong>水平な机の上に静止状態</strong>で置いてください。<br>
+              2. 下のボタンを押すと 100 サンプル自動測定し、静止時誤差を EEPROM に永続保存します。
+            </div>
+            <button id="btnCalibrate" class="btn btn-warning btn-sm" disabled style="width: 100%;">
+              静止ゼロ点校正 (キャリブレーション実行)
+            </button>
           </div>
         </div>
       </div>
@@ -612,10 +688,9 @@
     const logArea = document.getElementById('logArea');
 
     const interactiveBtns = [
-      'btnGetDevInfo', 'btnConnectWifi', 'btnSetSsid', 'btnGetSsid',
-      'btnSetPw', 'btnGetPw', 'btnSetFwHost', 'btnGetFwHost',
-      'btnTriggerFwUpdate', 'btnStartMeas', 'btnStopMeas',
-      'btnSetSensorCfg', 'btnGetSensorCfg'
+      'btnGetDevInfo', 'btnGetSsid', 'btnSetSsid', 'btnGetPw', 'btnSetPw', 'btnConnectWifi',
+      'btnGetFwHost', 'btnSetFwHost', 'btnTriggerFwUpdate', 'btnStartMeas', 'btnStopMeas',
+      'btnSetSensorCfg', 'btnGetSensorCfg', 'btnCalibrate'
     ];
 
     let latestSensorData = null;
@@ -742,8 +817,8 @@
       const value = event.target.value;
       const len = value.byteLength;
 
-      // Check if Binary Sensor Data (28 bytes)
-      if (len === 28 && value.getUint8(0) === 0x01 && value.getUint8(1) === 0x01) {
+      // Check if Binary Sensor Data (52 bytes float32)
+      if (len === 52 && value.getUint8(0) === 0x01 && value.getUint8(1) === 0x01) {
         latestSensorData = value;
         return;
       }
@@ -767,7 +842,6 @@
             const cfg = JSON.parse(val);
             if (cfg.accel_range !== undefined) document.getElementById('selectAccelRange').value = cfg.accel_range;
             if (cfg.gyro_range !== undefined) document.getElementById('selectGyroRange').value = cfg.gyro_range;
-            if (cfg.motion_threshold !== undefined) document.getElementById('inputMotionThresh').value = cfg.motion_threshold;
           } catch(e){}
         }
       }
@@ -778,40 +852,41 @@
     const historyS1 = [];
     const historyS2 = [];
 
-    // Render Binary Sensor Data (Called at 10Hz)
+    // Render Binary Sensor Data (Called at 10Hz, Float32)
     function renderSensorUI(dataView) {
       const cnt = dataView.getUint16(2, true);
       document.getElementById('valPacketCnt').textContent = cnt;
 
-      // GY-521 #1 (offset 4)
-      const s1_ax = dataView.getInt16(4, true);
-      const s1_ay = dataView.getInt16(6, true);
-      const s1_az = dataView.getInt16(8, true);
-      const s1_gx = dataView.getInt16(10, true);
-      const s1_gy = dataView.getInt16(12, true);
-      const s1_gz = dataView.getInt16(14, true);
+      // GY-521 #1 (offset 4, Float32)
+      const parseF = (off) => { const v = dataView.getFloat32(off, true); return isNaN(v) ? 0 : v; };
+      const s1_ax = parseF(4);
+      const s1_ay = parseF(8);
+      const s1_az = parseF(12);
+      const s1_gx = parseF(16);
+      const s1_gy = parseF(20);
+      const s1_gz = parseF(24);
 
-      // GY-521 #2 (offset 16)
-      const s2_ax = dataView.getInt16(16, true);
-      const s2_ay = dataView.getInt16(18, true);
-      const s2_az = dataView.getInt16(20, true);
-      const s2_gx = dataView.getInt16(22, true);
-      const s2_gy = dataView.getInt16(24, true);
-      const s2_gz = dataView.getInt16(26, true);
+      // GY-521 #2 (offset 28, Float32)
+      const s2_ax = parseF(28);
+      const s2_ay = parseF(32);
+      const s2_az = parseF(36);
+      const s2_gx = parseF(40);
+      const s2_gy = parseF(44);
+      const s2_gz = parseF(48);
 
-      document.getElementById('s1_ax').textContent = s1_ax;
-      document.getElementById('s1_ay').textContent = s1_ay;
-      document.getElementById('s1_az').textContent = s1_az;
-      document.getElementById('s1_gx').textContent = s1_gx;
-      document.getElementById('s1_gy').textContent = s1_gy;
-      document.getElementById('s1_gz').textContent = s1_gz;
+      document.getElementById('s1_ax').textContent = s1_ax.toFixed(3) + ' g';
+      document.getElementById('s1_ay').textContent = s1_ay.toFixed(3) + ' g';
+      document.getElementById('s1_az').textContent = s1_az.toFixed(3) + ' g';
+      document.getElementById('s1_gx').textContent = s1_gx.toFixed(1) + ' dps';
+      document.getElementById('s1_gy').textContent = s1_gy.toFixed(1) + ' dps';
+      document.getElementById('s1_gz').textContent = s1_gz.toFixed(1) + ' dps';
 
-      document.getElementById('s2_ax').textContent = s2_ax;
-      document.getElementById('s2_ay').textContent = s2_ay;
-      document.getElementById('s2_az').textContent = s2_az;
-      document.getElementById('s2_gx').textContent = s2_gx;
-      document.getElementById('s2_gy').textContent = s2_gy;
-      document.getElementById('s2_gz').textContent = s2_gz;
+      document.getElementById('s2_ax').textContent = s2_ax.toFixed(3) + ' g';
+      document.getElementById('s2_ay').textContent = s2_ay.toFixed(3) + ' g';
+      document.getElementById('s2_az').textContent = s2_az.toFixed(3) + ' g';
+      document.getElementById('s2_gx').textContent = s2_gx.toFixed(1) + ' dps';
+      document.getElementById('s2_gy').textContent = s2_gy.toFixed(1) + ' dps';
+      document.getElementById('s2_gz').textContent = s2_gz.toFixed(1) + ' dps';
 
       // Push to History Buffers
       historyS1.push({ ax: s1_ax, ay: s1_ay, az: s1_az, gx: s1_gx, gy: s1_gy, gz: s1_gz });
@@ -820,12 +895,110 @@
       historyS2.push({ ax: s2_ax, ay: s2_ay, az: s2_az, gx: s2_gx, gy: s2_gy, gz: s2_gz });
       if (historyS2.length > MAX_HISTORY_LEN) historyS2.shift();
 
+      // Update 3D Arm Posture
+      update3DArmPosture(s1_ax, s1_ay, s1_az, s1_gx, s1_gy, s1_gz, s2_ax, s2_ay, s2_az, s2_gx, s2_gy, s2_gz);
+
       // Render Charts
       drawWaveformChart('canvasSensor1', historyS1);
       drawWaveformChart('canvasSensor2', historyS2);
     }
 
-    // HTML5 Canvas 波形描画関数 (10Hz 超高速)
+    // 3D Arm Kinematic Visualizer (Three.js)
+    let scene3d, camera3d, renderer3d;
+    let meshUpperArm, meshElbow, meshForearm;
+    let pose1 = { pitch: 0, roll: 0, yaw: 0 };
+    let pose2 = { pitch: 0, roll: 0, yaw: 0 };
+    let poseOffset1 = { pitch: 0, roll: 0, yaw: 0 };
+    let poseOffset2 = { pitch: 0, roll: 0, yaw: 0 };
+    let is3dInitialized = false;
+
+    function init3DArmVisualizer() {
+      const container = document.getElementById('arm3dContainer');
+      if (!container || is3dInitialized || typeof THREE === 'undefined') return;
+
+      const w = container.clientWidth || 600;
+      const h = container.clientHeight || 260;
+
+      scene3d = new THREE.Scene();
+      scene3d.background = new THREE.Color(0x090d16);
+
+      camera3d = new THREE.PerspectiveCamera(45, w / h, 0.1, 1000);
+      camera3d.position.set(0, 0, 9);
+
+      // Lights
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+      scene3d.add(ambientLight);
+
+      const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+      dirLight.position.set(5, 10, 7);
+      scene3d.add(dirLight);
+
+      // Upper Arm (上腕)
+      const geomUpper = new THREE.CylinderGeometry(0.3, 0.25, 2.8, 16);
+      geomUpper.translate(0, -1.4, 0); // Origin at top (Shoulder)
+      const matUpper = new THREE.MeshStandardMaterial({ color: 0x06b6d4, roughness: 0.3, metalness: 0.2 });
+      meshUpperArm = new THREE.Mesh(geomUpper, matUpper);
+      meshUpperArm.position.set(0, 1.4, 0);
+      scene3d.add(meshUpperArm);
+
+      // Elbow Joint (肘関節)
+      const geomElbow = new THREE.SphereGeometry(0.35, 16, 16);
+      const matElbow = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.2 });
+      meshElbow = new THREE.Mesh(geomElbow, matElbow);
+      meshElbow.position.set(0, -2.8, 0);
+      meshUpperArm.add(meshElbow);
+
+      // Forearm (前腕)
+      const geomForearm = new THREE.CylinderGeometry(0.24, 0.18, 2.5, 16);
+      geomForearm.translate(0, -1.25, 0); // Origin at Elbow
+      const matForearm = new THREE.MeshStandardMaterial({ color: 0x10b981, roughness: 0.3, metalness: 0.2 });
+      meshForearm = new THREE.Mesh(geomForearm, matForearm);
+      meshElbow.add(meshForearm);
+
+      renderer3d = new THREE.WebGLRenderer({ antialias: true });
+      renderer3d.setSize(w, h);
+      container.appendChild(renderer3d.domElement);
+
+      is3dInitialized = true;
+      renderer3d.render(scene3d, camera3d);
+    }
+
+    // 相補フィルタ姿勢更新 (Upper Arm & Forearm)
+    const dt = 0.1; // 10Hz
+    function update3DArmPosture(ax1, ay1, az1, gx1, gy1, gz1, ax2, ay2, az2, gx2, gy2, gz2) {
+      if (!is3dInitialized) init3DArmVisualizer();
+      if (!is3dInitialized) return;
+
+      // GY-521 #1 (Upper Arm)
+      const accPitch1 = Math.atan2(-ax1, Math.sqrt(ay1*ay1 + az1*az1));
+      const accRoll1 = Math.atan2(ay1, az1);
+      pose1.pitch = 0.92 * (pose1.pitch + gx1 * (Math.PI / 180) * dt) + 0.08 * accPitch1;
+      pose1.roll  = 0.92 * (pose1.roll  + gy1 * (Math.PI / 180) * dt) + 0.08 * accRoll1;
+      pose1.yaw  += gz1 * (Math.PI / 180) * dt * 0.05;
+
+      // GY-521 #2 (Forearm)
+      const accPitch2 = Math.atan2(-ax2, Math.sqrt(ay2*ay2 + az2*az2));
+      const accRoll2 = Math.atan2(ay2, az2);
+      pose2.pitch = 0.92 * (pose2.pitch + gx2 * (Math.PI / 180) * dt) + 0.08 * accPitch2;
+      pose2.roll  = 0.92 * (pose2.roll  + gy2 * (Math.PI / 180) * dt) + 0.08 * accRoll2;
+      pose2.yaw  += gz2 * (Math.PI / 180) * dt * 0.05;
+
+      // Relative Rotation
+      const relP1 = pose1.pitch - poseOffset1.pitch;
+      const relR1 = pose1.roll  - poseOffset1.roll;
+      const relY1 = pose1.yaw   - poseOffset1.yaw;
+
+      const relP2 = pose2.pitch - poseOffset2.pitch;
+      const relR2 = pose2.roll  - poseOffset2.roll;
+      const relY2 = pose2.yaw   - poseOffset2.yaw;
+
+      meshUpperArm.rotation.set(relP1, relY1, relR1);
+      meshForearm.rotation.set(relP2 - relP1, relY2 - relY1, relR2 - relR1);
+
+      renderer3d.render(scene3d, camera3d);
+    }
+
+    // HTML5 Canvas 波形描画関数 (10Hz 超高速, Float 物理値適合)
     function drawWaveformChart(canvasId, historyData) {
       const canvas = document.getElementById(canvasId);
       if (!canvas) return;
@@ -852,7 +1025,18 @@
 
       if (historyData.length < 2) return;
 
-      const maxVal = (chartDisplayMode === 'acc') ? 32768 : 32768; // INT16 full range
+      // 現在選択中のフルスケール範囲に合わせてスケール調整
+      let maxVal = 2.0; // 加速度デフォルト ±2g
+      if (chartDisplayMode === 'acc') {
+        const accIdx = parseInt(document.getElementById('selectAccelRange').value) || 0;
+        const accRanges = [2.0, 4.0, 8.0, 16.0];
+        maxVal = accRanges[accIdx] || 2.0;
+      } else {
+        const gyroIdx = parseInt(document.getElementById('selectGyroRange').value) || 0;
+        const gyroRanges = [250.0, 500.0, 1000.0, 2000.0];
+        maxVal = gyroRanges[gyroIdx] || 250.0;
+      }
+
       const stepX = w / (MAX_HISTORY_LEN - 1);
 
       // Draw Lines for X, Y, Z
@@ -884,6 +1068,20 @@
     btnDisconnect.addEventListener('click', disconnectBLE);
     document.getElementById('btnClearLog').addEventListener('click', () => logArea.innerHTML = '');
 
+    // Tab Switching Logic
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const targetTab = btn.getAttribute('data-tab');
+
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+
+        btn.classList.add('active');
+        const activePane = document.getElementById(targetTab);
+        if (activePane) activePane.classList.add('active');
+      });
+    });
+
     // Chart Mode Toggle Buttons
     const btnModeAcc = document.getElementById('btnChartModeAcc');
     const btnModeGyro = document.getElementById('btnChartModeGyro');
@@ -909,7 +1107,10 @@
     });
 
     // Command Buttons
-    document.getElementById('btnGetDevInfo').addEventListener('click', () => sendCommand([0x00, 0x01]));
+    document.getElementById('btnGetDevInfo').addEventListener('click', async () => {
+      await sendCommand([0x00, 0x01]);
+      await sendCommand([0x02, 0x02]);
+    });
     document.getElementById('btnGetSsid').addEventListener('click', () => sendCommand([0x02, 0x00]));
     document.getElementById('btnSetSsid').addEventListener('click', () => {
       const val = document.getElementById('inputSsid').value;
@@ -942,8 +1143,19 @@
     document.getElementById('btnSetSensorCfg').addEventListener('click', () => {
       const acc = parseInt(document.getElementById('selectAccelRange').value);
       const gyro = parseInt(document.getElementById('selectGyroRange').value);
-      const thresh = parseInt(document.getElementById('inputMotionThresh').value) || 1;
-      sendCommand([0x04, 0x00, acc, gyro, thresh]);
+      sendCommand([0x04, 0x00, acc, gyro]);
+    });
+    document.getElementById('btnCalibrate').addEventListener('click', () => {
+      if (confirm('デバイスを水平な机の上に置きましたか？ゼロ点キャリブレーションを実行します。')) {
+        sendCommand([0x04, 0x02]);
+        log('キャリブレーション実行中... 静止させたままお待ちください', 'sys');
+      }
+    });
+
+    document.getElementById('btnPoseCalibrate').addEventListener('click', () => {
+      poseOffset1 = { ...pose1 };
+      poseOffset2 = { ...pose2 };
+      log('3D 腕モデルの基準姿勢 (0°) を現在位置でゼロリセットしました', 'sys');
     });
   </script>
 </body>

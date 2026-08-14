@@ -1,6 +1,53 @@
 # 概要
 
-本デバイスは、2 つの GY521 から得られる加速度、ジャイロデータを BLE で送信することをメイン機能としている。
+本デバイスは、M5Stamp Pico と 2 つの GY-521 (MPU6050 6軸センサ) を用い、高精度な 6 軸運動データ（加速度 `g`, 角速度 `dps`）を **100Hz の高精度リアルタイムサンプリング** で BLE 送信することを目的とした組み込みデバイスです。
+
+---
+
+## 🚀 システムアーキテクチャ
+
+本デバイスは **C++ State Pattern（状態パターン）** と **FreeRTOS マルチタスク構造** を統合した設計となっています。
+
+```mermaid
+graph TD;
+    subgraph Tasks ["FreeRTOS マルチタスク構造"]
+        t1["SensorTask (Priority 3: High)<br/>- 100Hz 超高精度サンプリング (vTaskDelayUntil)<br/>- STATE_MEAS 以外は完全スリープ (CPU負荷 0%)"]
+        t2["MainEventTask / loop() (Priority 2)<br/>- dequeue(portMAX_DELAY) による完全省電力待機<br/>- StateManager によるイベントディスパッチ<br/>- ArduinoOTA.handle()"]
+        t3["UIBlinkTask (Priority 1: Low)<br/>- バックグラウンドで独立した LED ブリンク制御<br/>- vTaskDelay による非ブロッキング表示"]
+    end
+
+    subgraph StatePattern ["C++ State Pattern (StateManager)"]
+        sm["StateManager"]
+        s1["StateAdvertise (未接続)"]
+        s2["StateWait (接続・待機)"]
+        s3["StateMeas (測定中)"]
+        s4["StateFWUpdate / StateFWUpdating (OTA)"]
+
+        sm --> s1
+        sm --> s2
+        sm --> s3
+        sm --> s4
+    end
+
+    t2 -->|handleEvent| sm
+    s3 -->|Notify| t1
+```
+
+---
+
+## 💡 LED ステータス表示仕様 (省電力ブリンク)
+
+内蔵 SK6812 RGB LED を用いて、各状態を独立したバックグラウンドタスク (`UIBlinkTask`) から視認性高く点滅表示します。明るさは省電力・低眩しさ（`brightness = 20`）に最適化されています。
+
+| 状態名 | 状態クラス | LED カラー | 点滅パターン | 備考 |
+|---|---|---|---|---|
+| **アドバタイズ中** | `StateAdvertise` | 🔵 青色 | 1秒周期 (100ms ON / 900ms OFF) | 未接続・接続待ち |
+| **接続・待機中** | `StateWait` | 🟢 緑色 | 1秒周期 (100ms ON / 900ms OFF) | BLE接続中・コマンド待機 |
+| **測定中** | `StateMeas` | 🔴 赤色 | 高速点滅 (100ms ON / 400ms OFF) | 100Hz データサンプリング中 |
+| **OTA 待機** | `StateFWUpdate` | 🟣 紫色 | 1秒周期 (100ms ON / 900ms OFF) | FWアップデートモード |
+| **OTA 書込中** | `StateFWUpdating` | 🩵 水色 | 常時点灯 (Solid ON) | ファームウェア書き込み中 |
+
+---
 
 # ブロック図 / 回路構成図
 
@@ -66,6 +113,60 @@ graph TD;
     M5_SCL === G2_SCL
 ```
 
+---
+
+# 📁 ディレクトリ構成
+
+```
+DualGY521_M5Stamp/
+├── platformio.ini
+├── README.md
+│
+├── web/                               # Web UI アプリケーション群
+│   ├── debug.html                     # デバッグ・各種設定・3DモニターUI
+│   └── motus_dashboard.html           # 野球投球動作アナリティクスUI
+│
+├── lib/                               # サードパーティ・モジュールライブラリ
+│   └── MPU6050/                       # センサドライバを lib/ へ完全隔離
+│       ├── I2Cdev.h
+│       ├── I2Cdev.cpp
+│       ├── MPU6050.h
+│       └── MPU6050.cpp
+│
+├── include/                           # グローバル / モジュールヘッダー (.h)
+│   ├── SixAxisSensor.h
+│   ├── MyBLE.h
+│   ├── common/                        # 共通ヘッダー群
+│   │   ├── MemoryMap.h
+│   │   ├── MyEvent.h
+│   │   ├── MyFunc.h
+│   │   ├── MyGlobal.h
+│   │   └── MyState.h
+│   └── states/                        # State Pattern ヘッダー群
+│       ├── State.h
+│       ├── StateManager.h
+│       ├── StateAdvertise.h
+│       ├── StateWait.h
+│       ├── StateMeas.h
+│       └── StateFWUpdate.h
+│
+└── src/                               # ソースファイル (.cpp)
+    ├── main.cpp
+    ├── SixAxisSensor.cpp
+    ├── MyBLE.cpp
+    ├── common/                        # 共通ロジックソース
+    │   ├── MyFunc.cpp
+    │   └── MyGlobal.cpp
+    └── states/                        # State Pattern 実装ロジック
+        ├── StateManager.cpp
+        ├── StateAdvertise.cpp
+        ├── StateWait.cpp
+        ├── StateMeas.cpp
+        └── StateFWUpdate.cpp
+```
+
+---
+
 # ピン接続対応表
 
 | モジュール | ピン名 | 接続先 | 備考 / 仕様 |
@@ -91,62 +192,64 @@ graph TD;
 | | `G21` | `GY-521 #1 (SDA)`, `GY-521 #2 (SDA)` | I2C データ |
 | | `G22` | `GY-521 #1 (SCL)`, `GY-521 #2 (SCL)` | I2C クロック |
 
-# 状態遷移図
+---
 
-```mermaid
-stateDiagram-v2
-    [*] --> BLEアドバタイズ状態
+# BLE セキュリティ & コマンド仕様
 
-    BLEアドバタイズ状態 --> 待機状態 : 接続
-    待機状態 --> BLEアドバタイズ状態 : 切断
-    FW更新状態 --> BLEアドバタイズ状態 : 切断
-    設定状態 --> BLEアドバタイズ状態 : 切断
-    測定状態 --> BLEアドバタイズ状態 : 切断
-    待機状態 --> 設定状態 : 設定コマンド
-    待機状態 --> FW更新状態 : FW更新コマンド
-    FW更新状態 --> BLEアドバタイズ状態 : FW更新成功、失敗
-    設定状態 --> 待機状態 : 設定完了
-    待機状態 --> 測定状態 : 測定開始コマンド
-    測定状態 --> 待機状態 : 測定停止コマンド
+### 🔒 セキュリティ認証設定
+- **PASSKEY (PIN コード)**: `123456`
+- **保護属性**: MITM 保護付きアクセス暗号化要求 (`ESP_GATT_PERM_READ_ENC_MITM | ESP_GATT_PERM_WRITE_ENC_MITM`)
+- **安全保護**: PIN コード未入力・不一致の場合は**即座に自動断線（Disconnect）**。
+
+### 📡 BLE コマンド一覧
+
+| 概要 | コマンドコード | 引数 | 応答通知 |
+|---|---|---|---|
+| **機器情報取得** | `0x00, 0x01` | なし | `device_version,0.3.0` |
+| **連続測定開始** | `0x01, 0x00` | なし | 52 Byte Binary Data Notification (100Hz) |
+| **連続測定停止** | `0x01, 0x01` | なし | なし |
+| **Wi-Fi SSID 設定** | `0x02, 0x00` | SSID (ASCII) | `wifi_ssid,<設定値>` (EEPROM保存) |
+| **Wi-Fi SSID 取得** | `0x02, 0x00` | なし | `wifi_ssid,<保持値>` |
+| **Wi-Fi PW 設定** | `0x02, 0x01` | PW (ASCII) | `wifi_pw,<設定値>` (EEPROM保存) |
+| **Wi-Fi PW 取得** | `0x02, 0x01` | なし | `wifi_pw,<保持値>` |
+| **Wi-Fi IP 取得** | `0x02, 0x02` | なし | `device_ip,<IPアドレス>` |
+| **Wi-Fi 接続** | `0x02, 0x03` | なし | 接続開始 |
+| **FW 更新開始** | `0x03, 0x00` | なし | OTAモードに移行 |
+| **FW Host 設定** | `0x03, 0x01` | Host (ASCII) | `fw_host,<設定値>` (EEPROM保存) |
+| **FW Host 取得** | `0x03, 0x01` | なし | `fw_host,<保持値>` |
+| **センサ設定 設定** | `0x04, 0x00` | Acc, Gyro | `sensor_cfg,{...}` (EEPROM保存) |
+| **センサ設定 取得** | `0x04, 0x01` | なし | `sensor_cfg,{...}` |
+
+---
+
+# 📦 測定データパケット仕様 (52 Bytes float32)
+
+### 1 サンプリング構造体 (`SensorPacket`)
+
+設定されている Range (フルスケールレンジ) に応じて、マイコン側で RAW 値から物理値へ高精度変換して送出されます。
+
+```cpp
+struct __attribute__((packed)) SensorPacket {
+  uint16_t header = 0x0101; // 識別子 (2 Bytes)
+  uint16_t count;          // パケットカウンタ (2 Bytes)
+  float    acc1[3];        // GY-521 #1 Acc X, Y, Z (12 Bytes, 単位: g)
+  float    gyro1[3];       // GY-521 #1 Gyro X, Y, Z (12 Bytes, 単位: dps)
+  float    acc2[3];        // GY-521 #2 Acc X, Y, Z (12 Bytes, 単位: g)
+  float    gyro2[3];       // GY-521 #2 Gyro X, Y, Z (12 Bytes, 単位: dps)
+};
 ```
 
-# BLE コマンド（スマホが送信側）
+* **合計パケットサイズ**: **52 Bytes / Packet**
+* **送信レート**: 100Hz (10ms 周期)
+* **データ転送量**:
+  - `52 Bytes * 100Hz = 5.2 kB/sec`
+  - `5.2 kB * 60s = 312 kB/min`
 
-| 概要              | コマンド番号 | 引数          | 応答                         |
-| ----------------- | ------------ | ------------- | ---------------------------- |
-|                   | 2byte        | 任意 byte     | 任意 byte                    |
-| 機器情報取得      | 0x00, 0x01   | なし          | 機器情報(json)               |
-| 連続測定開始      | 0x01, 0x00   | なし          | 2 つの 6 軸センサの値        |
-| 連続測定終了      | 0x01, 0x01   | なし          | なし                         |
-| Wifi SSID 設定    | 0x02, 0x00   | SSID（ascii） | 設定した SSID(ascii)         |
-| Wifi SSID 取得    | 0x02, 0x00   | なし          | 設定した SSID(ascii)         |
-| Wifi PW 設定      | 0x02, 0x01   | PW(ascii)     | 設定した PW(ascii)           |
-| Wifi IP 取得      | 0x02, 0x02   | なし          | ネット接続時:IP、未接続:None |
-| Wifi 接続         | 0x02, 0x03   | なし          | ネット接続時:IP、未接続:None |
-| FW 更新           | 0x03, 0x00   | なし          | 更新開始：0x01,不必要:0x00   |
-| FW 更新 Host 設定 | 0x03, 0x01   | Host(ascii)   | 設定した Host(ascii)         |
-| FW 更新 Host 取得 | 0x03, 0x01   | なし          | 設定した Host(ascii)         |
-| センサ設定 設定    | 0x04, 0x00   | Acc,Gyro,Thresh | 設定後の JSON                |
-| センサ設定 取得    | 0x04, 0x01   | なし          | 設定済の JSON                |
+---
 
-# 1 測定データのサイズ
+# 💾 EEPROM メモリアドレスマップ
 
-## 1 サンプリング
-
-2byte _ 6(acc+gyro) _ 2(センサ) = 24byte
-※測定時に加速度・ジャイロのスケールの Range を取得しておくように。
-
-## 100Hz で 1 分間測定
-
-24byte _ 100 = 2400byte = 2.4kB/sec
-2.4kB _ 60 = 144 kB
-
-RAM: [== ] 16.8% (used 55108 bytes from 327680 bytes)
-Flash: [======== ] 78.4% (used 1541181 bytes from 1966080 bytes)
-
-# EEPROM メモリアドレスマップ
-
-EEPROM(Flash) 設定領域（1000バイト確保）のメモリレイアウト：
+Flash メモリ内の EEPROM 設定領域 (1000 バイト確保) のレイアウト：
 
 | アドレス (Hex) | アドレス (Dec) | サイズ (Byte) | 項目名 | 内容 / フォーマット |
 |---|---|---|---|---|
@@ -159,5 +262,21 @@ EEPROM(Flash) 設定領域（1000バイト確保）のメモリレイアウト�
 | `0xA0` | 160 | 64 | FW_HOST | FW 更新ホスト名/IP (Null終端文字列) |
 | `0xE0` | 224 | 1 | ACC_RANGE | 加速度レンジ (`0`:±2g, `1`:±4g, `2`:±8g, `3`:±16g) |
 | `0xE1` | 225 | 1 | GYRO_RANGE | ジャイロレンジ (`0`:±250dps, `1`:±500dps, `2`:±1000dps, `3`:±2000dps) |
-| `0xE2` | 226 | 1 | MOTION_THRESH | 動作検出スレッショルド (`uint8_t`) |
+| `0xF0` | 240 | 48 | OFFSET_DATA | ゼロ点キャリブレーションオフセット (`12 * float`) |
 
+---
+
+# 🌐 Web UI アプリケーション
+
+### 1. ⚾ 野球投球動作解析ダッシュボード (`motus_dashboard.html`)
+motus (PULSE Throw) 同等の投球アナリティクスを提供するプロ仕様の専用 Web アプリです。
+* **自動投球検出 (Pitch Detection)**: 腕を振った瞬間のスイング速度を自動感知し、投球数・パラメータを分析
+* **リアルタイム計測指標**:
+  - **アームスピード (Max Arm Speed)**: 最高角速度 [`dps` / `rpm`]
+  - **肘ストレス (Elbow Varus Torque)**: 肘の内側靭帯にかかる推定外反トルク [`Nm`]
+  - **アームスロット (Arm Slot)**: リリリース時の腕の角度 [`°`]
+* **セッション履歴ログ ＆ 動的波形モニター**
+
+### 2. 🛠️ デバッグ・コントロール UI (`debug.html`)
+* **ゼロ点キャリブレーション**: デバイスを水平静止させて校正ボタンを押すことで、100サンプル測定しオフセットを EEPROM に永続保存
+* **10Hz レンダリングスロットリング ＆ 6軸波形モニター**

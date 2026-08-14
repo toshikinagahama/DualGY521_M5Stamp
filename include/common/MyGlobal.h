@@ -9,6 +9,8 @@
 #include "MemoryMap.h"
 #include "MyBLE.h"
 #include "SixAxisSensor.h"
+#include "LedController.h"
+#include "MyFunc.h"
 
 struct SYS_T {
   std::string WIFI_SSID = "";
@@ -20,11 +22,10 @@ struct SYS_T {
   std::string BLE_ARG = "";
 };
 
-extern MyState state;
 extern SYS_T sys;
 extern MyBLE *ble;
 extern SixAxisSensor *six_sensor;
-extern CRGB leds[1];
+extern TaskHandle_t hSensorTask;
 
 // Event Queue Interface
 void init_event_queue();

@@ -1,10 +1,11 @@
-#include "MyGlobal.h"
+#include "common/MyGlobal.h"
 
-MyState state = STATE_ADVERTISE;
 SYS_T sys;
-MyBLE *ble = new MyBLE();
-SixAxisSensor *six_sensor = new SixAxisSensor();
-CRGB leds[1];
+static MyBLE ble_inst;
+static SixAxisSensor sensor_inst;
+MyBLE *ble = &ble_inst;
+SixAxisSensor *six_sensor = &sensor_inst;
+TaskHandle_t hSensorTask = NULL;
 
 static QueueHandle_t xEventQueue = NULL;
 static const uint8_t DEFAULT_PAYLOAD[1] = {0};
@@ -112,15 +113,15 @@ void init_eeprom_settings()
   }
 
   EEPROM.writeByte(ADDRESS_MAJOR_VERSION, 0);
-  EEPROM.writeByte(ADDRESS_MINOR_VERSION, 2);
-  EEPROM.writeByte(ADDRESS_REVISION_VERSION, 1);
+  EEPROM.writeByte(ADDRESS_MINOR_VERSION, 3);
+  EEPROM.writeByte(ADDRESS_REVISION_VERSION, 0);
   EEPROM.commit();
 
   char char_version[64];
-  sprintf(char_version, "%d.%d.%d",
-          EEPROM.readByte(ADDRESS_MAJOR_VERSION),
-          EEPROM.readByte(ADDRESS_MINOR_VERSION),
-          EEPROM.readByte(ADDRESS_REVISION_VERSION));
+  snprintf(char_version, sizeof(char_version), "%d.%d.%d",
+           EEPROM.readByte(ADDRESS_MAJOR_VERSION),
+           EEPROM.readByte(ADDRESS_MINOR_VERSION),
+           EEPROM.readByte(ADDRESS_REVISION_VERSION));
   sys.DEVICE_VERSION = char_version;
 
   if (EEPROM.readByte(ADDRESS_INIT_FLAG) == EEPROM_INIT_MAGIC)
@@ -131,17 +132,37 @@ void init_eeprom_settings()
 
     uint8_t accRange = EEPROM.readByte(ADDRESS_ACC_RANGE);
     uint8_t gyroRange = EEPROM.readByte(ADDRESS_GYRO_RANGE);
-    uint8_t motionThresh = EEPROM.readByte(ADDRESS_MOTION_THRESH);
-    six_sensor->applySettings(accRange, gyroRange, motionThresh);
+    six_sensor->applySettings(accRange, gyroRange);
+
+    // オフセットデータ (48 Bytes) を EEPROM から読み込み
+    EEPROM.readBytes(ADDRESS_OFFSET_DATA, six_sensor->acc_offset, sizeof(six_sensor->acc_offset));
+    EEPROM.readBytes(ADDRESS_OFFSET_DATA + sizeof(six_sensor->acc_offset), six_sensor->gyro_offset, sizeof(six_sensor->gyro_offset));
+
+    // NaN ガード (未校正時の 0xFF データ保護)
+    for (int i = 0; i < 2; i++)
+    {
+      for (int j = 0; j < 3; j++)
+      {
+        if (isnan(six_sensor->acc_offset[i][j]) || isnan(six_sensor->gyro_offset[i][j]) ||
+            abs(six_sensor->acc_offset[i][j]) > 10.0f || abs(six_sensor->gyro_offset[i][j]) > 2000.0f)
+        {
+          six_sensor->acc_offset[i][j] = 0.0f;
+          six_sensor->gyro_offset[i][j] = 0.0f;
+        }
+      }
+    }
   }
   else
   {
     EEPROM.writeByte(ADDRESS_INIT_FLAG, EEPROM_INIT_MAGIC);
     EEPROM.writeByte(ADDRESS_ACC_RANGE, 0);       // ±2g
     EEPROM.writeByte(ADDRESS_GYRO_RANGE, 0);      // ±250dps
-    EEPROM.writeByte(ADDRESS_MOTION_THRESH, 1);   // 動作検出スレッショルド 1
+    memset(six_sensor->acc_offset, 0, sizeof(six_sensor->acc_offset));
+    memset(six_sensor->gyro_offset, 0, sizeof(six_sensor->gyro_offset));
+    EEPROM.writeBytes(ADDRESS_OFFSET_DATA, six_sensor->acc_offset, sizeof(six_sensor->acc_offset));
+    EEPROM.writeBytes(ADDRESS_OFFSET_DATA + sizeof(six_sensor->acc_offset), six_sensor->gyro_offset, sizeof(six_sensor->gyro_offset));
     EEPROM.commit();
 
-    six_sensor->applySettings(0, 0, 1);
+    six_sensor->applySettings(0, 0);
   }
 }

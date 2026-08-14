@@ -1,1 +1,0 @@
-// Legacy event handlers replaced by FreeRTOS Event Queue architecture

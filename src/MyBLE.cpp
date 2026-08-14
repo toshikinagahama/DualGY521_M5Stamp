@@ -32,112 +32,35 @@ class MyCallbacks : public BLECharacteristicCallbacks
   void onWrite(BLECharacteristic *pCharacteristic)
   {
     std::string data = pCharacteristic->getValue();
-    uint16_t len_data = (uint16_t)data.length();
-    if (len_data < 2)
-      return; //無効なコマンド
-    switch (data[0])
+    if (data.length() < 2) return;
+
+    // カテゴリ (data[0]) とコマンド種別 (data[1]) を 16bit 合成コードに変換 (例: 0x0200)
+    uint16_t cmd = ((uint8_t)data[0] << 8) | (uint8_t)data[1];
+    std::string payload = (data.length() > 2) ? data.substr(2) : "";
+
+    switch (cmd)
     {
-    case 0x00:
-      //機器情報関連
-      switch (data[1])
-      {
-      case 0x01:
-        enqueue(EVT_CMD_GET_DEVICE_INFO);
-        break;
-      default:
-        break;
-      }
-      break;
-    case 0x01:
-      //測定関係
-      switch (data[1])
-      {
-      case 0x00:
-        enqueue(EVT_CMD_MEAS_START);
-        break;
-      case 0x01:
-        enqueue(EVT_CMD_MEAS_STOP);
-        break;
-      default:
-        break;
-      }
-      break;
-    case 0x02:
-      // Wifi関係
-      switch (data[1])
-      {
-      case 0x00:
-        // SSID
-        if (len_data > 2)
-        {
-          std::string arg = data.substr(2);
-          enqueue(EVT_CMD_SET_WIFI_SSID, arg.data(), arg.length());
-        }
-        else
-        {
-          enqueue(EVT_CMD_GET_WIFI_SSID);
-        }
-        break;
-      case 0x01:
-        // PW
-        if (len_data > 2)
-        {
-          std::string arg = data.substr(2);
-          enqueue(EVT_CMD_SET_WIFI_PW, arg.data(), arg.length());
-        }
-        else
-        {
-          enqueue(EVT_CMD_GET_WIFI_PW);
-        }
-        break;
-      case 0x02:
-        enqueue(EVT_CMD_GET_WIFI_IP);
-        break;
-      case 0x03:
-        enqueue(EVT_CMD_CONNECT_WIFI);
-        break;
-      default:
-        break;
-      }
-      break;
-    case 0x03:
-      // Firmware関係
-      switch (data[1])
-      {
-      case 0x00:
-        enqueue(EVT_CMD_FW_UPDATE);
-        break;
-      case 0x01:
-        if (len_data > 2)
-        {
-          std::string arg = data.substr(2);
-          enqueue(EVT_CMD_SET_FW_HOST, arg.data(), arg.length());
-        }
-        else
-        {
-          enqueue(EVT_CMD_GET_FW_HOST);
-        }
-        break;
-      }
-      break;
-    case 0x04:
-      // GY-521 センサ設定関係
-      switch (data[1])
-      {
-      case 0x00:
-        if (len_data >= 3)
-        {
-          std::string arg = data.substr(2);
-          enqueue(EVT_CMD_SET_SENSOR_CFG, arg.data(), arg.length());
-        }
-        break;
-      case 0x01:
-        enqueue(EVT_CMD_GET_SENSOR_CFG);
-        break;
-      }
-      break;
+    case BLECmd::GET_DEVICE_INFO: enqueue(EVT_CMD_GET_DEVICE_INFO); break;
+    case BLECmd::MEAS_START:      enqueue(EVT_CMD_MEAS_START); break;
+    case BLECmd::MEAS_STOP:       enqueue(EVT_CMD_MEAS_STOP); break;
+
+    // Wi-Fi コマンド
+    case BLECmd::SET_WIFI_SSID:   (!payload.empty()) ? enqueue(EVT_CMD_SET_WIFI_SSID, payload.data(), payload.length()) : enqueue(EVT_CMD_GET_WIFI_SSID); break;
+    case BLECmd::SET_WIFI_PW:     (!payload.empty()) ? enqueue(EVT_CMD_SET_WIFI_PW, payload.data(), payload.length()) : enqueue(EVT_CMD_GET_WIFI_PW); break;
+    case BLECmd::GET_WIFI_IP:     enqueue(EVT_CMD_GET_WIFI_IP); break;
+    case BLECmd::CONNECT_WIFI:    enqueue(EVT_CMD_CONNECT_WIFI); break;
+
+    // Firmware / OTA コマンド
+    case BLECmd::FW_UPDATE:      enqueue(EVT_CMD_FW_UPDATE); break;
+    case BLECmd::SET_FW_HOST:    (!payload.empty()) ? enqueue(EVT_CMD_SET_FW_HOST, payload.data(), payload.length()) : enqueue(EVT_CMD_GET_FW_HOST); break;
+
+    // GY-521 センサ設定 & キャリブレーション
+    case BLECmd::SET_SENSOR_CFG: if (!payload.empty()) enqueue(EVT_CMD_SET_SENSOR_CFG, payload.data(), payload.length()); break;
+    case BLECmd::GET_SENSOR_CFG: enqueue(EVT_CMD_GET_SENSOR_CFG); break;
+    case BLECmd::CALIBRATE:      enqueue(EVT_CMD_CALIBRATE); break;
+
     default:
-      Serial.println("Invalid cmd");
+      Serial.printf("Unknown BLE Cmd: 0x%04X\n", cmd);
       break;
     }
   }
@@ -178,27 +101,36 @@ class MySecurity : public BLESecurityCallbacks
     }
     else
     {
-      Serial.println("auth failed");
+      Serial.println("auth failed -> disconnecting!");
+      if (ble && ble->pServer)
+      {
+        ble->pServer->disconnect(0); // 認証失敗（PINコード間違い等）の時は即座に切断！
+      }
     }
   }
 };
+
+static MySecurity secCallbacks;
+static MyServerCallbacks serverCallbacks;
+static MyCallbacks charCallbacks;
+static BLE2902 descriptor2902;
 
 void MyBLE::initialize()
 {
   BLEDevice::init("DualGY521_M5Stamp");
   BLEDevice::setEncryptionLevel(ESP_BLE_SEC_ENCRYPT_MITM);
-  BLEDevice::setSecurityCallbacks(new MySecurity());
-  BLESecurity *pSecurity = new BLESecurity();
-  pSecurity->setKeySize(16);
+  BLEDevice::setSecurityCallbacks(&secCallbacks);
 
-  pSecurity->setAuthenticationMode(ESP_LE_AUTH_BOND);
-  pSecurity->setCapability(ESP_IO_CAP_OUT);
-  pSecurity->setInitEncryptionKey(ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK);
+  BLESecurity security;
+  security.setKeySize(16);
+  security.setAuthenticationMode(ESP_LE_AUTH_REQ_SC_MITM_BOND); // MITM保護とPIN認証を必須化
+  security.setCapability(ESP_IO_CAP_OUT);
+  security.setInitEncryptionKey(ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK);
   uint32_t passkey = 123456;
   esp_ble_gap_set_security_param(ESP_BLE_SM_SET_STATIC_PASSKEY, &passkey, sizeof(uint32_t));
 
   pServer = BLEDevice::createServer();
-  pServer->setCallbacks(new MyServerCallbacks());
+  pServer->setCallbacks(&serverCallbacks);
 
   pService = pServer->createService(SERVICE_UUID);
 
@@ -208,8 +140,12 @@ void MyBLE::initialize()
           BLECharacteristic::PROPERTY_WRITE |
           BLECharacteristic::PROPERTY_NOTIFY |
           BLECharacteristic::PROPERTY_INDICATE);
-  pCharacteristic->setCallbacks(new MyCallbacks());
-  pCharacteristic->addDescriptor(new BLE2902());
+
+  // キャラクタリスティックへのアクセスに MITM (PINコード認証付き暗号化) を必須に設定
+  pCharacteristic->setAccessPermissions(ESP_GATT_PERM_READ_ENC_MITM | ESP_GATT_PERM_WRITE_ENC_MITM);
+
+  pCharacteristic->setCallbacks(&charCallbacks);
+  pCharacteristic->addDescriptor(&descriptor2902);
 
   pAdvertising = pServer->getAdvertising();
 }

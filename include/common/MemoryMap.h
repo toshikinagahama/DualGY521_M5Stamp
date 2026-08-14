@@ -12,7 +12,7 @@
 
 #define ADDRESS_ACC_RANGE        0xE0
 #define ADDRESS_GYRO_RANGE       0xE1
-#define ADDRESS_MOTION_THRESH    0xE2
+#define ADDRESS_OFFSET_DATA      0xF0 // 48 Bytes (12 * 4B float)
 
 #define EEPROM_INIT_MAGIC        0xA5
 #define EEPROM_STR_MAX_LEN       64
