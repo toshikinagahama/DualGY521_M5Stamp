@@ -460,7 +460,7 @@
     let pitchCount = 0;
     let isPitching = false;
     let pitchBuf = [];
-    const PITCH_THRESHOLD_DPS = 300.0; // 300 dps を超えるとスイング開始検知
+    let PITCH_THRESHOLD_DPS = parseFloat(localStorage.getItem('pitch_threshold_dps')) || 300.0; // debug.html と同期する投球検出しきい値
 
     const historyMotion = [];
     const MAX_HISTORY = 80;

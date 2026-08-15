@@ -124,7 +124,7 @@ DualGY521_M5Stamp/
 │
 ├── web/                               # Web UI アプリケーション群
 │   ├── debug.html                     # デバッグ・各種設定・3DモニターUI
-│   └── motus_dashboard.html           # 野球投球動作アナリティクスUI
+│   └── pitch_dashboard.html           # 野球投球動作アナリティクスUI
 │
 ├── lib/                               # サードパーティ・モジュールライブラリ
 │   └── MPU6050/                       # センサドライバを lib/ へ完全隔離
@@ -268,8 +268,8 @@ Flash メモリ内の EEPROM 設定領域 (1000 バイト確保) のレイアウ
 
 # 🌐 Web UI アプリケーション
 
-### 1. ⚾ 野球投球動作解析ダッシュボード (`motus_dashboard.html`)
-motus (PULSE Throw) 同等の投球アナリティクスを提供するプロ仕様の専用 Web アプリです。
+### 1. ⚾ 野球投球動作解析ダッシュボード (`pitch_dashboard.html`)
+PULSE Throw 同等の投球アナリティクスを提供するプロ仕様の専用 Web アプリです。
 * **自動投球検出 (Pitch Detection)**: 腕を振った瞬間のスイング速度を自動感知し、投球数・パラメータを分析
 * **リアルタイム計測指標**:
   - **アームスピード (Max Arm Speed)**: 最高角速度 [`dps` / `rpm`]

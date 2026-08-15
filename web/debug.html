@@ -463,7 +463,8 @@
         <div class="card" style="grid-column: span 1 / -1;">
           <div class="card-title">
             <span>6軸センサ リアルタイムデータ (GY-521 × 2)</span>
-            <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <div style="display: flex; gap: 0.75rem; align-items: center;">
+              <span class="info-label">投球数: <strong id="valPitchCnt" style="color: var(--accent-cyan);">0</strong></span>
               <span class="info-label">Packet Count: <strong id="valPacketCnt" style="color: var(--accent-amber);">0</strong></span>
               <button id="btnStartMeas" class="btn btn-primary btn-sm" disabled>測定開始</button>
               <button id="btnStopMeas" class="btn btn-danger btn-sm" disabled>測定停止</button>
@@ -643,6 +644,21 @@
               <option value="2">±1000 dps</option>
               <option value="3">±2000 dps</option>
             </select>
+          </div>
+
+          <div class="input-group" style="margin-top: 0.4rem;">
+            <label>⚾ 投球動作検出しきい値 (角速度 Threshold)</label>
+            <div class="input-row">
+              <select id="selectPitchThreshold">
+                <option value="150">150 dps (低め / スローピッチ)</option>
+                <option value="200">200 dps (軽め)</option>
+                <option value="300" selected>300 dps (標準 / デフォルト)</option>
+                <option value="400">400 dps (高精度)</option>
+                <option value="500">500 dps (高速スイングのみ)</option>
+                <option value="custom">カスタム入力...</option>
+              </select>
+              <input type="number" id="inputCustomThreshold" placeholder="dps" style="width: 100px; display: none;" value="300">
+            </div>
           </div>
 
           <div style="margin-top: 1rem; padding-top: 0.8rem; border-top: 1px solid var(--card-border);">
@@ -852,6 +868,10 @@
     const historyS1 = [];
     const historyS2 = [];
 
+    let pitchThresholdDps = parseFloat(localStorage.getItem('pitch_threshold_dps')) || 300.0;
+    let debugPitchCount = 0;
+    let isDebugPitching = false;
+
     // Render Binary Sensor Data (Called at 10Hz, Float32)
     function renderSensorUI(dataView) {
       const cnt = dataView.getUint16(2, true);
@@ -887,6 +907,20 @@
       document.getElementById('s2_gx').textContent = s2_gx.toFixed(1) + ' dps';
       document.getElementById('s2_gy').textContent = s2_gy.toFixed(1) + ' dps';
       document.getElementById('s2_gz').textContent = s2_gz.toFixed(1) + ' dps';
+
+      // 投球動作検知ロジック
+      const gNorm1 = Math.sqrt(s1_gx*s1_gx + s1_gy*s1_gy + s1_gz*s1_gz);
+      const gNorm2 = Math.sqrt(s2_gx*s2_gx + s2_gy*s2_gy + s2_gz*s2_gz);
+      const maxGyroNorm = Math.max(gNorm1, gNorm2);
+
+      if (!isDebugPitching && maxGyroNorm > pitchThresholdDps) {
+        isDebugPitching = true;
+        debugPitchCount++;
+        document.getElementById('valPitchCnt').textContent = debugPitchCount;
+        log(`⚾ 投球動作検出！ [第${debugPitchCount}球] Max Gyro: ${maxGyroNorm.toFixed(1)} dps (閾値: ${pitchThresholdDps} dps)`, 'sys');
+      } else if (isDebugPitching && maxGyroNorm < pitchThresholdDps * 0.5) {
+        isDebugPitching = false;
+      }
 
       // Push to History Buffers
       historyS1.push({ ax: s1_ax, ay: s1_ay, az: s1_az, gx: s1_gx, gy: s1_gy, gz: s1_gz });
@@ -1157,6 +1191,38 @@
       poseOffset2 = { ...pose2 };
       log('3D 腕モデルの基準姿勢 (0°) を現在位置でゼロリセットしました', 'sys');
     });
+
+    // 投球検出しきい値 UI の連動処理
+    const selectPitchThresh = document.getElementById('selectPitchThreshold');
+    const inputCustomThresh = document.getElementById('inputCustomThreshold');
+
+    if (selectPitchThresh && inputCustomThresh) {
+      if ([150, 200, 300, 400, 500].includes(pitchThresholdDps)) {
+        selectPitchThresh.value = String(pitchThresholdDps);
+      } else {
+        selectPitchThresh.value = 'custom';
+        inputCustomThresh.value = pitchThresholdDps;
+        inputCustomThresh.style.display = 'inline-block';
+      }
+
+      selectPitchThresh.addEventListener('change', () => {
+        if (selectPitchThresh.value === 'custom') {
+          inputCustomThresh.style.display = 'inline-block';
+          pitchThresholdDps = parseFloat(inputCustomThresh.value) || 300.0;
+        } else {
+          inputCustomThresh.style.display = 'none';
+          pitchThresholdDps = parseFloat(selectPitchThresh.value);
+        }
+        localStorage.setItem('pitch_threshold_dps', pitchThresholdDps);
+        log(`投球検出しきい値を ${pitchThresholdDps} dps に変更・保存しました`, 'sys');
+      });
+
+      inputCustomThresh.addEventListener('change', () => {
+        pitchThresholdDps = parseFloat(inputCustomThresh.value) || 300.0;
+        localStorage.setItem('pitch_threshold_dps', pitchThresholdDps);
+        log(`投球検出しきい値を ${pitchThresholdDps} dps に変更・保存しました`, 'sys');
+      });
+    }
   </script>
 </body>
 </html>
